@@ -1,42 +1,14 @@
+PROGRAM gh;
+BEGIN
+VAR db;
+VAR dc;
 
 
-								  
-										
-											 
-												 
-													
-													
-														
-															
-																
-																	 
-																	 
-
-
-
-
-
-
-
-
-		PROGRAM 			gh		;	
-				
-	
-	
-
-BEGIn
-
-
-
-	
 		
-			
-				
-					
-						
-							
-								
-
-
-
+VAR cv ->-5;
+VAR ck -> -565546;
+VAR cl -> -565546;
+VAR kk -> 888;
+VAR ck -> 		888			;
+END
 

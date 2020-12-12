@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <regex>
+#include <vector>
 using namespace std;
 
 int line_number=0;
@@ -17,6 +18,7 @@ int line_number=0;
 enum lexemType
 {
     PROGRAM_,
+    PROGRAM_NAME_,
     BEGIN_,
     VAR_,
     END_,
@@ -37,17 +39,17 @@ enum lexemType
     NOT_,
     AND_,
     OR_,
-    COMMENT_START_,
-    COMMENT_END_,
-    BLOCK_START_,
-    BLOCK_END_,
-    LINE_END_,
+    COMMENT_START_, //#*
+    COMMENT_END_,   //*#
+    BLOCK_START_,   //(
+    BLOCK_END_,     //)
+    LINE_END_,      //;
     IDENT_,
     CONST_,
     UNKNOWN_
 };
 
-struct gLexem
+struct Lex
 {
     string token;
     int lineNumber;
@@ -55,15 +57,17 @@ struct gLexem
     int posInTable;
 };
 
+vector<Lex>* lexList;
+
+
 void lexicalAnalysis(fstream& inFile);
 void findEntryPoint(fstream& inFile);
 void findBeginBlock(fstream& inFile);
+void findVarDef(fstream& inFile);
 
 
 int main()
 {
-
-
     string filePath;
 enter_file_name:
     cout << "Please enter(or paste) path to file: "<< endl;
@@ -88,12 +92,16 @@ enter_file_name:
 
     }
 
+    lexList = new vector<Lex>();
+
     lexicalAnalysis(inFile);
 
 
     inFile.close();
 
+    cout<<endl<<"SUCCESS"<<endl;
 
+    delete lexList;
     return 1;
 }
 
@@ -104,6 +112,9 @@ void lexicalAnalysis(fstream& inFile)
     findEntryPoint(inFile);
 
     findBeginBlock(inFile);
+
+    findVarDef(inFile);
+
     string inLine;
     getline(inFile, inLine);
     cout<<inLine<<endl;
@@ -126,6 +137,13 @@ void findEntryPoint(fstream& inFile)
             }
             else if(regex_match(inLine, rgx_PROGRAM))
             {
+
+                regex rgx_pName("[a-z]{2}");
+                smatch pName;
+                regex_search(inLine,pName,rgx_pName);
+                lexList->push_back(Lex{"",line_number,lexemType(PROGRAM_),-1});
+                lexList->push_back(Lex{pName[0],line_number,lexemType(PROGRAM_NAME_),-1});
+                lexList->push_back(Lex{"",line_number,lexemType(LINE_END_),-1});
                 return;
             }
             else
@@ -154,6 +172,7 @@ void findBeginBlock(fstream& inFile)
             }
             else if(regex_match(inLine, rgx_BEGIN))
             {
+                lexList->push_back(Lex{"",line_number,lexemType(BEGIN_),-1});
                 return;
             }
             else
@@ -163,10 +182,40 @@ void findBeginBlock(fstream& inFile)
             }
     }
     exit(0);
-
 }
 
+void findVarDef(fstream& inFile)
+{
+    streampos  prevPos;
+    string inLine;
+    while(1)
+    {
+        prevPos = inFile.tellg();
+        getline(inFile, inLine);
+        regex rgx_EMPTY("[ \t]{0,}");
+        regex rgx_Var("[ \t]{0,}VAR[ \t]{1,}[a-z]{2}[ \t]{0,};");
+        regex rgx_VarAssign("[ \t]{0,}VAR[ \t]{1,}[a-z]{2}[ \t]{0,}->[ \t]{0,}[-]{0,1}[0-9]{1,}[ \t]{0,};");
 
+        if(regex_match(inLine, rgx_EMPTY))
+        {
+            continue;
+        }
+        else if(regex_match(inLine, rgx_Var))
+        {
+            cout<<"Var"<<endl;
+        }
+        else if(regex_match(inLine, rgx_VarAssign))
+        {
+            cout<<"Var assignment"<<line_number<<endl;
+        }
+        else
+        {
+            cout<<"No more vars declarations"<<endl;
+            inFile.seekg(prevPos);
+            return;
+        }
+    }
+}
 
 
 
