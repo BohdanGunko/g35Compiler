@@ -7,8 +7,6 @@ using namespace std;
 
 #define myDEBUG
 
-int line_number = 0;
-
 #define gPROGRAM "PROGRAM"
 #define gVAR "VAR"
 #define gBEGIN "BEGIN"
@@ -36,8 +34,11 @@ int line_number = 0;
 #define gBLOCK_END ")"
 #define gSEMICOLON ";"
 
-#define NO_ENTRY_POINT "Expected \"PROGRAM\" in line " + to_string(line_number)
-#define NO_BEGIN_POINT "Expected \"BEGIN\" in line " + to_string(line_number)
+#define NO_ENTRY_POINT(ln) "Error in line " + to_string(ln) + ":No entry point, expected 'PROGRAM'"
+#define WORD_BREAK_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected space or tab after " + token
+#define IDENT_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected identifier after " + token
+#define SEMICOLON_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected semicolon after " + token
+#define NEW_LINE_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected new line after " + token
 
 enum lexemType
 {
@@ -80,10 +81,20 @@ struct Lex
     int posInTable;
 };
 
+int line_number = 0;
 vector<Lex>* lexList;
 
-void lexicalAnalysis(fstream& inFile);
-bool checkLexError(string& lex);
+void translateToAsm(fstream& inFile);
+string skipEmptyLines(fstream& inFile);
+void checkPROGRAM(fstream& inFile);
+
+void err_exit()
+{
+    lexList->clear();
+    line_number = 1;
+    exit(0);
+}
+
 int main()
 {
 #ifdef myDEBUG
@@ -118,11 +129,9 @@ enter_file_name:
     lexList = new vector<Lex>();
 #endif
 
-    lexicalAnalysis(inFile);
+    translateToAsm(inFile);
 
     inFile.close();
-
-    cout << endl << "SUCCESS" << endl;
 
 #ifndef myDEBUG
     delete lexList;
@@ -134,347 +143,87 @@ enter_file_name:
     return 1;
 }
 
-void lexicalAnalysis(fstream& inFile)
+void translateToAsm(fstream& inFile)
 {
-    regex rgx_IDENT("[a-z]{2,}");
-    regex rgx_CONST("[0-9]{1,}");
+    checkPROGRAM(inFile);
+}
+
+string skipEmptyLines(fstream& inFile)
+{
     string inLine;
-    string curLex = "";
+    regex rgx("[ \t]{0,}");
+
     while (getline(inFile, inLine))
     {
-        ++line_number;
-        for (unsigned i = 0; i < inLine.length(); ++i)
+        if (regex_match(inLine, rgx))
         {
-            curLex += inLine[i];
-            if (curLex == gPROGRAM)
-            {
-                if (i < (inLine.length() - 1) && (inLine[i + 1] != ' ' && inLine[i + 1] != '\t'))
-                {
-                    cout << "Error: in line " << line_number << " space or tab expected after \"PROGRAM\"" << endl;
-                    exit(0);
-                }
+            ++line_number;
+        }
+        else
+        {
+            return inLine;
+        }
+    }
+    return "";
+}
 
-                lexList->push_back(Lex{ gPROGRAM, line_number, lexemType(PROGRAM_), -1 });
-                curLex = "";
-                ++i;
-            }
-            else if (curLex == gBEGIN)
-            {
-                for (unsigned gI = i+1; gI < inLine.length(); ++gI)
-                {
-                    if (inLine[gI] != ' ' || inLine[gI] != '\t' )
-                    {
-                        cout << "Error: in line " << line_number << " new line expected after \"BEGIN\"" << endl;
-                        exit(0);
-                    }
-                }
-                lexList->push_back(Lex{ gBEGIN, line_number, lexemType(BEGIN_), -1 });
-                curLex = "";
-                break;
-            }
-            else if (curLex == gVAR)
-            {
-                 if (i < (inLine.length() - 1) && (inLine[i + 1] != ' ' && inLine[i + 1] != '\t'))
-                {
-                    cout << "Error: in line " << line_number << " space or tab expected after \"VAR\"" << endl;
-                    exit(0);
-                }
-                lexList->push_back(Lex{ gVAR, line_number, lexemType(VAR_), -1 });
-                curLex = "";
-                ++i;
-            }
-            else if (curLex == gEND)
-            {
-                for (unsigned gI = i+1; gI < inLine.length(); ++gI)
-                {
-                    if (inLine[gI] != ' ' || inLine[gI] != '\t' )
-                    {
-                        cout << "Error: in line " << line_number << " new line expected after \"END\"" << endl;
-                        exit(0);
-                    }
-                }
-                lexList->push_back(Lex{ gEND, line_number, lexemType(END_), -1 });
-                curLex = "";
-                break;
-            }
-            else if (curLex == gSCAN)
-            {
-                if (i < (inLine.length() - 1) && (inLine[i + 1] != ' ' && inLine[i + 1] != '\t'))
-                {
-                    cout << "Error: in line " << line_number << " space or tab expected after \"SCAN\"" << endl;
-                    exit(0);
-                }
-                lexList->push_back(Lex{ gSCAN, line_number, lexemType(SCAN_), -1 });
-                curLex = "";
-                ++i;
-            }
-            else if (curLex == gPRINT)
-            {
-                 if (i < (inLine.length() - 1) && (inLine[i + 1] != ' ' && inLine[i + 1] != '\t'))
-                {
-                    cout << "Error: in line " << line_number << " space or tab expected after \"PRINT\"" << endl;
-                    exit(0);
-                }
-                lexList->push_back(Lex{ gPRINT, line_number, lexemType(PRINT_), -1 });
-                curLex = "";
-                ++i;
-            }
-            else if (curLex == gWHILE)
-            {
-                 if (i < (inLine.length() - 1) && (inLine[i + 1] != ' ' && inLine[i + 1] != '\t'))
-                {
-                    cout << "Error: in line " << line_number << " space or tab expected after \"WHILE\"" << endl;
-                    exit(0);
-                }
-                lexList->push_back(Lex{ gWHILE, line_number, lexemType(WHILE_), -1 });
-                curLex = "";
-                ++i;
-            }
-            else if (curLex == gDO)
-            {
-                lexList->push_back(Lex{ gDO, line_number, lexemType(DO_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gPLUS)
-            {
-                lexList->push_back(Lex{ gPLUS, line_number, lexemType(PLUS_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gMINUS)
-            {
-                if (i < inLine.length() - 1 && inLine[i + 1] == '>')
-                {
-                    lexList->push_back(Lex{ gASSIGNMENT, line_number, lexemType(ASSIGNMENT_), -1 });
-                    curLex = "";
-                    ++i;
-                }
-                else
-                {
-                    lexList->push_back(Lex{ gMINUS, line_number, lexemType(MINUS_), -1 });
-                    curLex = "";
-                }
-            }
-            else if (curLex == gMULT)
-            {
-                lexList->push_back(Lex{ gMULT, line_number, lexemType(MULT_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gDIV)
-            {
-                lexList->push_back(Lex{ gDIV, line_number, lexemType(DIV_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gMOD)
-            {
-                lexList->push_back(Lex{ gMOD, line_number, lexemType(MOD_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gEQUAL)
-            {
-                lexList->push_back(Lex{ gEQUAL, line_number, lexemType(EQUAL_), -1 });
-                curLex = "";
-            }
-            else if (curLex == "<")
-            {
-                if (i < inLine.length() - 1 && inLine[i + 1] == '<')
-                {
-                    lexList->push_back(Lex{ gLESS, line_number, lexemType(LESS_), -1 });
-                    curLex = "";
-                    ++i;
-                }
-                else if (i < inLine.length() - 1 && inLine[i + 1] == '>')
-                {
-                    lexList->push_back(Lex{ gNOT_EQUAL, line_number, lexemType(NOT_EQUAL_), -1 });
-                    curLex = "";
-                    ++i;
-                }
-                else
-                {
-                    cout << "Error: unknown lexem '<' in line " << line_number << endl;
-                    return;
-                    exit(0);
-                }
-            }
-            else if (curLex == gGRATER)
-            {
-                lexList->push_back(Lex{ gGRATER, line_number, lexemType(GRATER_), -1 });
-                curLex = "";
-            }
+unsigned skipWordBreaks(const string& inLine, unsigned startPos)
+{
+    for (; startPos < inLine.length(); ++startPos)
+    {
+        if (inLine[startPos] != ' ' && inLine[startPos] != '\t')
+        {
+            return startPos;
+        }
+    }
+    return inLine.length();
+}
 
-            else if (curLex == gNOT)
+void checkPROGRAM(fstream& inFile)
+{
+    string inLine = skipEmptyLines(inFile);
+    unsigned i = skipWordBreaks(inLine, 0);
+
+    if (inLine.substr(i, 7) != gPROGRAM)
+    {
+        cout << NO_ENTRY_POINT(line_number) << endl;
+        err_exit();
+    }
+    if (i + 7 < skipWordBreaks(inLine, i + 7))
+    {
+        i = skipWordBreaks(inLine, i + 7);
+        regex rgx("[a-z]{2}");
+        string pName = inLine.substr(i, 2);
+        if (regex_match(pName, rgx))
+        {
+            i = skipWordBreaks(inLine, i + 2);
+            if (i < inLine.length() && inLine[i] == ';')
             {
-                lexList->push_back(Lex{ gNOT, line_number, lexemType(NOT_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gAND)
-            {
-                lexList->push_back(Lex{ gAND, line_number, lexemType(AND_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gOR)
-            {
-                lexList->push_back(Lex{ gOR, line_number, lexemType(OR_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gCOM_ST)
-            {
-                lexList->push_back(Lex{ gCOM_ST, line_number, lexemType(COM_ST_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gCOM_END)
-            {
-                lexList->push_back(Lex{ gCOM_END, line_number, lexemType(COM_END_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gBLOCK_START)
-            {
-                lexList->push_back(Lex{ gBLOCK_START, line_number, lexemType(BLOCK_START_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gBLOCK_END)
-            {
-                lexList->push_back(Lex{ gBLOCK_END, line_number, lexemType(BLOCK_END_), -1 });
-                curLex = "";
-            }
-            else if (curLex == gSEMICOLON)
-            {
-                lexList->push_back(Lex{ gSEMICOLON, line_number, lexemType(SEMICOLON_), -1 });
-                curLex = "";
-            }
-            else if (inLine[i] == ' ' || inLine[i] == '\t')
-            {
-                if (curLex.length() == 1)
+                if (i == inLine.length()-1 || skipWordBreaks(inLine, i+1)==inLine.length())
                 {
-                    curLex = "";
+                    cout << "All good)" << endl;
                 }
                 else
                 {
-                    cout << "Error: unknown lexem " << curLex << " in line " << line_number << endl;
-                    return;
-                    exit(0);
+                    cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
+                    err_exit();
                 }
-            }
-            else if (regex_match(curLex, rgx_CONST))
-            {
-                string nextPossibleConst = curLex;
-                for (unsigned j = i + 1; j < inLine.length(); ++j)
-                {
-                    nextPossibleConst += inLine[j];
-                    if (regex_match(nextPossibleConst, rgx_CONST))
-                    {
-                        if (nextPossibleConst.length() >= 10 && (unsigned long long)stoi(nextPossibleConst) > 2147483647)
-                        {
-                            cout << "Error: constant out of INT16 range in line " << line_number << endl;
-                        }
-                        curLex = nextPossibleConst;
-                    }
-                    else
-                    {
-                        lexList->push_back(Lex{ "CONST", line_number, lexemType(CONST_), stoi(curLex) });
-                        curLex = "";
-                        i = j - 1;
-                        break;
-                    }
-                }
-            }
-            else if (regex_match(curLex, rgx_IDENT))
-            {
-                lexList->push_back(Lex{ curLex, line_number, lexemType(IDENT_), -1 });
-                curLex += inLine[i + 1];
-                if (regex_match(curLex, rgx_IDENT))
-                {
-                    cout << "Error: identifier too long in line " << line_number << endl;
-                    return;
-                    exit(0);
-                }
-                curLex = "";
             }
             else
             {
-                if (!checkLexError(curLex))
-                {
-                    cout << "Error: unknown token \"" << curLex << "\" in line " << line_number << endl;
-                    exit(0);
-                }
+                cout << SEMICOLON_EXPECTED(line_number, pName) << endl;
+                err_exit();
             }
         }
+        else
+        {
+            cout << IDENT_EXPECTED(line_number, gPROGRAM) << endl;
+            err_exit();
+        }
     }
-
-    for (auto& l : *lexList)
+    else
     {
-        cout << l.token << endl;
+        cout << WORD_BREAK_EXPECTED(line_number, gPROGRAM) << endl;
+        err_exit();
     }
-}
-
-bool checkLexError(string& lex)
-{
-    if (lex.length() >= 3 && lex[0] == 'V')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 5 && lex[0] == 'B')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 3 && lex[0] == 'E')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 4 && lex[0] == 'S')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 5 && lex[0] == 'W')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 2 && lex[0] == 'D' && lex[1] == 'O')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 3 && lex[0] == 'D' && lex[1] == 'I')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 3 && lex[0] == 'M')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 2 && lex[0] == '=')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 2 && lex[0] == '>')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 2 && lex[0] == '!')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 2 && lex[0] == '&')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 2 && lex[0] == '|')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 2 && lex[0] == '#')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 2 && lex[0] == '*')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 7 && lex[0] == 'P' && lex[1] == 'R' && lex[2] == 'O')
-    {
-        return 0;
-    }
-    else if (lex.length() >= 5 && lex[0] == 'P' && lex[1] == 'R' && lex[2] == 'I')
-    {
-        return 0;
-    }
-    return 1;
 }
