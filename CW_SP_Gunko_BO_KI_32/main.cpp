@@ -32,12 +32,19 @@ using namespace std;
 #define gBLOCK_END ")"
 #define gSEMICOLON ";"
 
-#define NO_ENTRY_POINT(ln) "Error in line " + to_string(ln) + ":No entry point, expected \"PROGRAM\""
-#define BEGIN_EXPECTED(ln) "Error in line " + to_string(ln) + ":Expected \"BEGIN\""
-#define WORD_BREAK_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected space or tab after \"" + token + "\""
-#define IDENT_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected identifier after \"" + token + "\""
-#define SEMICOLON_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected semicolon after \"" + token + "\""
-#define NEW_LINE_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected new line after \"" + token + "\""
+#define NO_ENTRY_POINT(ln) "Error in line " + to_string(ln) + ":No entry point, expected token \"PROGRAM\""
+#define BEGIN_EXPECTED(ln) "Error in line " + to_string(ln) + ":Expected token \"BEGIN\""
+#define WORD_BREAK_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected space or tab after token\"" + token + "\""
+#define IDENT_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected identifier after token \"" + token + "\""
+#define SEMICOLON_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected semicolon after token \"" + token + "\""
+#define NEW_LINE_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected new line after token \"" + token + "\""
+#define END_EXPECTED(ln) "Error in line " + to_string(ln) + ":Expected token \"END\""
+#define NO_TOKENS_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":No tokens expected after \"" + token + "\""
+#define IDENT_ALREADY_EXIST(ln, ident) "Error in line " + to_string(ln) + ":Identificator \"" + ident + "\" already exist"
+#define CONSTANT_OUT_OF_RANGE(ln) "Error in line " + to_string(ln) + ":Constant out of range of type INT16"
+#define CONSTANT_TOO_LONG(ln) "Error in line " + to_string(ln) + ":Constant too long"
+#define CONSTANT_EXPECTED(ln) "Error in line " + to_string(ln) + ":Constant expected after token \"->\""
+#define UNEXPECTED_TOKEN(ln, token) "Error in line " + to_string(ln) + ":Unexpected token after \"" + token + "\""
 
 enum lexemType
 {
@@ -72,21 +79,24 @@ enum lexemType
     UNKNOWN_
 };
 
-struct Lex
+struct identifier
 {
-    string token;
-    int lineNumber;
-    lexemType lexType;
-    int posInTable;
+    short name;
+    short value;
+    bool defined;
 };
 
 int line_number = 0;
-vector<Lex>* lexList;
+vector<identifier>* ident_table;
 
+short checkForDuplicats(string& ident_string);
+unsigned getConst(string& inLine, unsigned pos);
+string checkIdent(string& inLine, unsigned i);
 string skipEmptyLines(fstream& inFile);
 void checkPROGRAM(fstream& inFile);
+
 void translateToAsm(fstream& inFile);
-void checkVarDecs(fstream& inFile);
+string checkVarDec(fstream& inFile);
 
 int main()
 {
@@ -112,14 +122,12 @@ enter_file_name:
         goto enter_file_name;
     }
 
-    lexList = new vector<Lex>();
-
+    ident_table = new vector<identifier>;
     translateToAsm(inFile);
 
     inFile.close();
 
-    delete lexList;
-
+    delete ident_table;
     return 1;
 }
 
@@ -157,6 +165,70 @@ unsigned skipWordBreaks(const string& inLine, unsigned startPos)
     return inLine.length();
 }
 
+string checkIdent(string& inLine, unsigned i)
+{
+    regex rgx("[a-z][a-z0-9]");
+
+    string ident = inLine.substr(i, 2);
+
+    if (!regex_match(ident, rgx))
+    {
+        cout << IDENT_EXPECTED(line_number, gPROGRAM) << endl;
+        exit(0);
+    }
+    return ident;
+}
+
+short checkForDuplicats(string& ident_string)
+{
+    short ident = (short)ident_string[0] << 8 | (short)ident_string[1];
+    for (auto& i : *ident_table)
+    {
+        if (i.name == ident)
+        {
+            cout << IDENT_ALREADY_EXIST(line_number, ident_string) << endl;
+            exit(0);
+        }
+    }
+    return ident;
+}
+
+unsigned getConst(string& inLine, unsigned pos)
+{
+    unsigned endPos =pos;
+    if(inLine[pos]=='-')
+        ++endPos;
+
+    regex rgx("[0-9]{1,}");
+    string num = "";
+    for (; endPos< inLine.length(); ++endPos)
+    {
+        num += inLine[endPos];
+        if (regex_match(num, rgx))
+        {
+            if (stoi(num) > 32767 || stoi(num) < -32768)
+            {
+                cout << CONSTANT_OUT_OF_RANGE(line_number) << endl;
+                exit(0);
+            }
+            else if (num.length() > 5)
+            {
+                cout << CONSTANT_TOO_LONG(line_number) << endl;
+                exit(0);
+            }
+        }
+        else
+        {
+            break;
+        }
+    }
+    if(inLine[pos]=='-' && endPos - pos ==1)
+        --endPos;
+
+    return endPos;
+
+}
+
 void checkPROGRAM(fstream& inFile)
 {
     string inLine = skipEmptyLines(inFile);
@@ -175,14 +247,7 @@ void checkPROGRAM(fstream& inFile)
     }
 
     i = skipWordBreaks(inLine, i + 7);
-    regex rgx("[a-z][a-z0-9]");
-    string pName = inLine.substr(i, 2);
-
-    if (!regex_match(pName, rgx))
-    {
-        cout << IDENT_EXPECTED(line_number, gPROGRAM) << endl;
-        exit(0);
-    }
+    string pName = checkIdent(inLine, i);
 
     i = skipWordBreaks(inLine, i + 2);
     if (i >= inLine.length() || inLine[i] != ';')
@@ -213,10 +278,95 @@ void checkPROGRAM(fstream& inFile)
         cout << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
         exit(0);
     }
-    cout << "All good)" << endl;
 }
 
-void checkVarDecs(fstream& inFile)
+string checkVarDec(fstream& inFile)
 {
+    string inLine = skipEmptyLines(inFile);
 
+    if (inLine == "")
+    {
+        cout << END_EXPECTED(line_number) << endl;
+    }
+
+    unsigned i = skipWordBreaks(inLine, 0);
+
+    if (inLine.substr(i, 3) == gEND)
+    {
+        if (skipWordBreaks(inLine, i + 3) != inLine.length() || skipEmptyLines(inFile) != "")
+        {
+            cout << NO_TOKENS_EXPECTED(line_number, gEND) << endl;
+            exit(0);
+        }
+        cout<<"Compiled"<<endl;
+        exit(1);
+    }
+
+    i = 0;
+    while (1)
+    {
+        i = skipWordBreaks(inLine, 0);
+        if (inLine.substr(i, 3) != gVAR)
+        {
+            cout << "SUCCESS" << endl;
+            return inLine;
+        }
+        if (i + 3 >= skipWordBreaks(inLine, i + 3))
+        {
+            cout << WORD_BREAK_EXPECTED(line_number, gVAR) << endl;
+            exit(0);
+        }
+        i = skipWordBreaks(inLine, i + 3);
+
+        string ident_string = checkIdent(inLine, i);
+        short ident = checkForDuplicats(ident_string);
+
+        i = skipWordBreaks(inLine, i + 2);
+
+        if (inLine[i] == ';')
+        {
+            if (skipWordBreaks(inLine, i + 1) != inLine.length())
+            {
+                cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
+                exit(0);
+            }
+            ident_table->push_back(identifier{ ident, 0, false });
+            inLine = skipEmptyLines(inFile);
+            continue;
+        }
+        else if (inLine.substr(i, 2) == gASSIGNMENT)
+        {
+            i = skipWordBreaks(inLine, i + 2);
+            unsigned constEndPos = getConst(inLine, i);
+            if (constEndPos == i)
+            {
+                cout << CONSTANT_EXPECTED(line_number) << endl;
+                exit(0);
+            }
+            string numStr = inLine.substr(i, constEndPos - i);
+            short constantVal = stoi(numStr);
+
+            i = skipWordBreaks(inLine, constEndPos);
+            if (inLine[i] != ';')
+            {
+                cout << SEMICOLON_EXPECTED(line_number, numStr) << endl;
+                exit(0);
+            }
+            i = skipWordBreaks(inLine, i+1);
+            if (i < inLine.length())
+            {
+                cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
+                exit(0);
+            }
+
+            ident_table->push_back(identifier{ ident, constantVal, true });
+            inLine = skipEmptyLines(inFile);
+        }
+
+        else
+        {
+            cout << UNEXPECTED_TOKEN(line_number, ident_string) << endl;
+            exit(0);
+        }
+    }
 }

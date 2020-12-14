@@ -8,13 +8,10 @@
 
 PROGRAM	g1;
 BEGIN
-PROGRAM	gb;	   
-1
-2
-3
-4
-5
-6
-7
-8
-9
+VAR a1;
+VAR 				a2->5000   ;	
+VAR a3 ->-5000   ;
+VAR a4 ->   vd
+VAR ad -> -0   ;
+VAR a6 -> 5000   ;
+END 
