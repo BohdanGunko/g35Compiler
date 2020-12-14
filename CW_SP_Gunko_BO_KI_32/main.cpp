@@ -5,8 +5,6 @@
 #include <vector>
 using namespace std;
 
-#define myDEBUG
-
 #define gPROGRAM "PROGRAM"
 #define gVAR "VAR"
 #define gBEGIN "BEGIN"
@@ -34,11 +32,12 @@ using namespace std;
 #define gBLOCK_END ")"
 #define gSEMICOLON ";"
 
-#define NO_ENTRY_POINT(ln) "Error in line " + to_string(ln) + ":No entry point, expected 'PROGRAM'"
-#define WORD_BREAK_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected space or tab after " + token
-#define IDENT_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected identifier after " + token
-#define SEMICOLON_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected semicolon after " + token
-#define NEW_LINE_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected new line after " + token
+#define NO_ENTRY_POINT(ln) "Error in line " + to_string(ln) + ":No entry point, expected \"PROGRAM\""
+#define BEGIN_EXPECTED(ln) "Error in line " + to_string(ln) + ":Expected \"BEGIN\""
+#define WORD_BREAK_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected space or tab after \"" + token + "\""
+#define IDENT_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected identifier after \"" + token + "\""
+#define SEMICOLON_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected semicolon after \"" + token + "\""
+#define NEW_LINE_EXPECTED(ln, token) "Error in line " + to_string(ln) + ":Expected new line after \"" + token + "\""
 
 enum lexemType
 {
@@ -84,32 +83,20 @@ struct Lex
 int line_number = 0;
 vector<Lex>* lexList;
 
-void translateToAsm(fstream& inFile);
 string skipEmptyLines(fstream& inFile);
 void checkPROGRAM(fstream& inFile);
-
-void err_exit()
-{
-    lexList->clear();
-    line_number = 1;
-    exit(0);
-}
+void translateToAsm(fstream& inFile);
+void checkVarDecs(fstream& inFile);
 
 int main()
 {
-#ifdef myDEBUG
-    lexList = new vector<Lex>();
-#endif
-
     string filePath;
 enter_file_name:
     cout << "Please enter(or paste) path to file: " << endl;
     cin >> filePath;
 
-#ifdef myDEBUG
     // to remove
     filePath = "S:\\LPNU\\Semestr 5\\System programming\\Course work\\cw_project\\testApp.g35";
-#endif
 
     if (filePath.length() < 4 || filePath.substr(filePath.length() - 4, filePath.length() - 1) != ".g35")
     {
@@ -125,27 +112,21 @@ enter_file_name:
         goto enter_file_name;
     }
 
-#ifndef myDEBUG
     lexList = new vector<Lex>();
-#endif
 
     translateToAsm(inFile);
 
     inFile.close();
 
-#ifndef myDEBUG
     delete lexList;
-#else
-    lexList->clear();
-    line_number = 0;
-    goto enter_file_name;
-#endif
+
     return 1;
 }
 
 void translateToAsm(fstream& inFile)
 {
     checkPROGRAM(inFile);
+    checkVarDec(inFile);
 }
 
 string skipEmptyLines(fstream& inFile)
@@ -155,11 +136,8 @@ string skipEmptyLines(fstream& inFile)
 
     while (getline(inFile, inLine))
     {
-        if (regex_match(inLine, rgx))
-        {
-            ++line_number;
-        }
-        else
+        ++line_number;
+        if (!regex_match(inLine, rgx))
         {
             return inLine;
         }
@@ -187,43 +165,58 @@ void checkPROGRAM(fstream& inFile)
     if (inLine.substr(i, 7) != gPROGRAM)
     {
         cout << NO_ENTRY_POINT(line_number) << endl;
-        err_exit();
+        exit(0);
     }
-    if (i + 7 < skipWordBreaks(inLine, i + 7))
-    {
-        i = skipWordBreaks(inLine, i + 7);
-        regex rgx("[a-z]{2}");
-        string pName = inLine.substr(i, 2);
-        if (regex_match(pName, rgx))
-        {
-            i = skipWordBreaks(inLine, i + 2);
-            if (i < inLine.length() && inLine[i] == ';')
-            {
-                if (i == inLine.length()-1 || skipWordBreaks(inLine, i+1)==inLine.length())
-                {
-                    cout << "All good)" << endl;
-                }
-                else
-                {
-                    cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-                    err_exit();
-                }
-            }
-            else
-            {
-                cout << SEMICOLON_EXPECTED(line_number, pName) << endl;
-                err_exit();
-            }
-        }
-        else
-        {
-            cout << IDENT_EXPECTED(line_number, gPROGRAM) << endl;
-            err_exit();
-        }
-    }
-    else
+
+    if (i + 7 >= skipWordBreaks(inLine, i + 7))
     {
         cout << WORD_BREAK_EXPECTED(line_number, gPROGRAM) << endl;
-        err_exit();
+        exit(0);
     }
+
+    i = skipWordBreaks(inLine, i + 7);
+    regex rgx("[a-z][a-z0-9]");
+    string pName = inLine.substr(i, 2);
+
+    if (!regex_match(pName, rgx))
+    {
+        cout << IDENT_EXPECTED(line_number, gPROGRAM) << endl;
+        exit(0);
+    }
+
+    i = skipWordBreaks(inLine, i + 2);
+    if (i >= inLine.length() || inLine[i] != ';')
+    {
+        cout << SEMICOLON_EXPECTED(line_number, pName) << endl;
+        exit(0);
+    }
+
+    if (i != inLine.length() - 1 && skipWordBreaks(inLine, i + 1) != inLine.length())
+    {
+        cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
+        exit(0);
+    }
+
+    // to do: generate asm code
+
+    inLine = skipEmptyLines(inFile);
+    i = skipWordBreaks(inLine, 0);
+
+    if (inLine.substr(i, 5) != gBEGIN)
+    {
+        cout << BEGIN_EXPECTED(line_number) << endl;
+        exit(0);
+    }
+
+    if (i != inLine.length() - 1 && skipWordBreaks(inLine, i + 5) != inLine.length())
+    {
+        cout << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
+        exit(0);
+    }
+    cout << "All good)" << endl;
+}
+
+void checkVarDecs(fstream& inFile)
+{
+
 }
