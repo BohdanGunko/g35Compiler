@@ -3,12 +3,17 @@ BEGIN
 VAR fg -> -98 7777;
 
 gh -> vc +(bv-gv)*7;
-WHILE td DO
+WHILE 
+td DO
 BEGIN
-END;
 
+END
+VAR av; VAR cd;
 PRINT
-SCAN
+  DO
+BEGIN 
+av ->
 >><<->+-&&||!!==DIV<>
 
 END
+PRINT 
