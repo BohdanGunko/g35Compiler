@@ -45,6 +45,7 @@ using namespace std;
 #define CONSTANT_TOO_LONG(ln) "Error in line " + to_string(ln) + ":Constant too long"
 #define CONSTANT_EXPECTED(ln) "Error in line " + to_string(ln) + ":Constant expected after token \"->\""
 #define UNEXPECTED_TOKEN(ln, token) "Error in line " + to_string(ln) + ":Unexpected token after \"" + token + "\""
+#define END_OF_COMMENT_EXPECTED "Error:End of comment expected"
 
 enum lexemType
 {
@@ -137,22 +138,6 @@ void translateToAsm(fstream& inFile)
     checkVarDec(inFile);
 }
 
-string skipEmptyLines(fstream& inFile)
-{
-    string inLine;
-    regex rgx("[ \t]{0,}");
-
-    while (getline(inFile, inLine))
-    {
-        ++line_number;
-        if (!regex_match(inLine, rgx))
-        {
-            return inLine;
-        }
-    }
-    return "";
-}
-
 unsigned skipWordBreaks(const string& inLine, unsigned startPos)
 {
     for (; startPos < inLine.length(); ++startPos)
@@ -163,6 +148,53 @@ unsigned skipWordBreaks(const string& inLine, unsigned startPos)
         }
     }
     return inLine.length();
+}
+
+string skipEmptyLines(fstream& inFile)
+{
+    string inLine;
+    regex rgx("[ \t]{0,}");
+
+    while (getline(inFile, inLine))
+    {
+        ++line_number;
+        if (!regex_match(inLine, rgx))
+        {
+            for (unsigned i = 0; i < inLine.length() - 1; ++i)
+            {
+                if (inLine[i] == '#' && inLine[i + 1] == '*')
+                {
+                    string beforeComment = inLine.substr(0, i);
+
+                    unsigned j = i + 2;
+                    do
+                    {
+                        for (; j < inLine.length(); ++j)
+                        {
+                            if (j < inLine.length() - 1 && inLine[j] == '*' && inLine[j + 1] == '#')
+                            {
+                                inLine = beforeComment + inLine.substr(j + 2);
+                                if (skipWordBreaks(inLine, 0) == inLine.length())
+                                    return (skipEmptyLines(inFile));
+
+                                return inLine;
+                            }
+                        }
+
+                        ;
+                        ++line_number;
+                        j = 0;
+
+                    } while (getline(inFile, inLine));
+
+                    cout << END_OF_COMMENT_EXPECTED << endl;
+                    exit(0);
+                }
+            }
+            return inLine;
+        }
+    }
+    return "";
 }
 
 string checkIdent(string& inLine, unsigned i)
@@ -195,13 +227,13 @@ short checkForDuplicats(string& ident_string)
 
 unsigned getConst(string& inLine, unsigned pos)
 {
-    unsigned endPos =pos;
-    if(inLine[pos]=='-')
+    unsigned endPos = pos;
+    if (inLine[pos] == '-')
         ++endPos;
 
     regex rgx("[0-9]{1,}");
     string num = "";
-    for (; endPos< inLine.length(); ++endPos)
+    for (; endPos < inLine.length(); ++endPos)
     {
         num += inLine[endPos];
         if (regex_match(num, rgx))
@@ -222,11 +254,10 @@ unsigned getConst(string& inLine, unsigned pos)
             break;
         }
     }
-    if(inLine[pos]=='-' && endPos - pos ==1)
+    if (inLine[pos] == '-' && endPos - pos == 1)
         --endPos;
 
     return endPos;
-
 }
 
 void checkPROGRAM(fstream& inFile)
@@ -298,7 +329,7 @@ string checkVarDec(fstream& inFile)
             cout << NO_TOKENS_EXPECTED(line_number, gEND) << endl;
             exit(0);
         }
-        cout<<"Compiled"<<endl;
+        cout << "Compiled" << endl;
         exit(1);
     }
 
@@ -352,7 +383,7 @@ string checkVarDec(fstream& inFile)
                 cout << SEMICOLON_EXPECTED(line_number, numStr) << endl;
                 exit(0);
             }
-            i = skipWordBreaks(inLine, i+1);
+            i = skipWordBreaks(inLine, i + 1);
             if (i < inLine.length())
             {
                 cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;

@@ -6,12 +6,22 @@
 
 
 
-PROGRAM	g1;
+PROGRAM	gt ;
 BEGIN
+#*esttest*#	
 VAR a1;
 VAR 				a2->5000   ;	
 VAR a3 ->-5000   ;
-VAR a4 ->   vd
+VAR			a4 ->  2;
+
 VAR ad -> -0   ;
 VAR a6 -> 5000   ;
-END 
+WHIL vc 
+
+
+cv
+BEGIN
+END
+SCAN
+PRINT
+WHILE
