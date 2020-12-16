@@ -72,7 +72,6 @@ struct identifier
 {
     short name;
     short value;
-    bool defined;
 };
 
 int line_number = 0;
@@ -379,7 +378,7 @@ string checkVarDec(fstream& inFile)
                 cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
                 exit(0);
             }
-            ident_table->push_back(identifier{ ident, 0, false });
+            ident_table->push_back(identifier{ ident, 0 });
             inLine = skipEmptyLines(inFile);
             continue;
         }
@@ -408,7 +407,7 @@ string checkVarDec(fstream& inFile)
                 exit(0);
             }
 
-            ident_table->push_back(identifier{ ident, constantVal, true });
+            ident_table->push_back(identifier{ ident, constantVal });
             inLine = skipEmptyLines(inFile);
         }
 
@@ -444,16 +443,74 @@ void checkProgramBody(string& inLine, fstream& inFile)
         }
         else if (inLine.substr(i, 4) == gSCAN)
         {
+            if (i + 4 == skipWordBreaks(inLine, i + 4))
+            {
+                cout << WORD_BREAK_EXPECTED(line_number, gSCAN) << endl;
+                exit(0);
+            }
+
+            i = skipWordBreaks(inLine, i + 4);
+
+            if (i != checkIdent(inLine, i))
+            {
+                cout << IDENT_EXPECTED(line_number, gSCAN) << endl;
+                exit(0);
+            }
+
+            string ident_string = inLine.substr(i, 2);
+
+            short ident = identExist(ident_string);
+
+            i = skipWordBreaks(inLine, i + 2);
+
+            if (!checkSemicolon(inLine, i))
+            {
+                cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
+                exit(0);
+            }
+
+            // to do: generate code
+
             // we found SCAN
             cout << "SCAN found" << endl;
         }
         else if (inLine.substr(i, 5) == gPRINT)
         {
+            if (i + 5 == skipWordBreaks(inLine, i + 5))
+            {
+                cout << WORD_BREAK_EXPECTED(line_number, gPRINT) << endl;
+                exit(0);
+            }
+
+            i = skipWordBreaks(inLine, i + 5);
+
+            if (i != checkIdent(inLine, i))
+            {
+                cout << IDENT_EXPECTED(line_number, gPRINT) << endl;
+                exit(0);
+            }
+
+            string ident_string = inLine.substr(i, 2);
+
+            short ident = identExist(ident_string);
+
+            i = skipWordBreaks(inLine, i + 2);
+
+            if (!checkSemicolon(inLine, i))
+            {
+                cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
+                exit(0);
+            }
+
+            // to do: generate code
+
             // we found PRINT
             cout << "PRINT found" << endl;
         }
         else if (inLine.substr(i, 5) == gWHILE)
         {
+
+
             // we found WHILE
             cout << "WHILE found" << endl;
         }
@@ -623,13 +680,13 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
 bool checkSemicolon(string& inLine, unsigned startPos)
 {
-    if (inLine[startPos] == gSEMICOLON)
+    if (startPos < inLine.length() && inLine[startPos] == gSEMICOLON)
     {
         for (unsigned i = startPos + 1; i < inLine.length(); ++i)
         {
             if (inLine[i] != ' ' && inLine[i] != '\t')
             {
-                cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON);
+                cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
                 exit(0);
             }
         }

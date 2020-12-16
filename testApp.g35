@@ -3,7 +3,8 @@ BEGIN
 #*esttest*#	
 VAR af;
 VAR a2->5000;
-WHILE
+PRINT a2;
+SCAN a2;
 af->(-1)+a2MOD8;
 WHILE
 
