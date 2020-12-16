@@ -1,27 +1,22 @@
-
-
-
-
-
-
-
-
-PROGRAM	gt ;
+PROGRAM	tb ;
 BEGIN
 #*esttest*#	
-VAR a1;
-VAR 				a2->5000   ;	
-VAR a3 ->-5000   ;
-VAR			a4 ->  2;
-
-VAR ad -> -0   ;
-VAR a6 -> 5000   ;
-WHIL vc 
-
-
-cv
-BEGIN
-END
-SCAN
-PRINT
+VAR af;
+VAR a2->5000;
 WHILE
+af->5*7+1;
+WHILE
+
+
+
+
+
+ 
+11311532
++-*++()
+
+5*3&&1
+
+
+
+
