@@ -46,8 +46,9 @@ gOperator gLESS = { "<<", PRIORYTY4 };
 gOperator gNOT = { "!!", PRIORYTY1 };
 gOperator gAND = { "&&", PRIORYTY6 };
 gOperator gOR = { "||", PRIORYTY7 };
-gOperator gBLOCK_START = { "(", PRIORYTY0 };
-gOperator gBLOCK_END = { ")", PRIORYTY0 };
+gOperator gOPEN_BRACKET = { "(", PRIORYTY0 };
+gOperator gCLOSE_BRACKET = { ")", PRIORYTY0 };
+gOperator gUNKNOWN_OPERATOR = { "UNKNOWN", PRIORYTY7 };
 
 #define NO_ENTRY_POINT(ln) "Error in line " + to_string(ln) + ":No entry point, expected token \"PROGRAM\""
 #define BEGIN_EXPECTED(ln) "Error in line " + to_string(ln) + ":Expected token \"BEGIN\""
@@ -67,6 +68,8 @@ gOperator gBLOCK_END = { ")", PRIORYTY0 };
 #define OPEN_BRACKET_EXPECTED(ln, pos) "Error in line " + to_string(ln) + ":Expected open bracket before possition \"" + to_string(pos) + "\""
 #define CLOSE_BRACKET_EXPECTED(ln) "Error in line " + to_string(ln) + ":Not enought closed brackets"
 #define TOKEN_EXPECTED(ln, after_token, expected_token) "Error in line " + to_string(ln) + ":Expected \"" + expected_token + "\" after token \"" + after_token + "\""
+#define OPEN_BLOCK_EXPECTED(ln) "Error in line " + to_string(ln) + ":Expected \"BEGIN\" before \"END\""
+#define CLOSE_BLOCK_EXPECTED(ln) "Error in line " + to_string(ln) + ":Unclosed block, \"END\" expected"
 
 struct identifier
 {
@@ -75,7 +78,8 @@ struct identifier
 };
 
 int line_number = 0;
-short total_brackets = 0;
+short total_unclosed_brackets = 0;
+short total_unclosed_blocks = 0;
 vector<identifier>* ident_table;
 
 short checkForDuplicats(string& ident_string);
@@ -83,7 +87,7 @@ unsigned getConst(string& inLine, unsigned pos);
 unsigned checkIdent(string& inLine, unsigned i);
 string skipEmptyLines(fstream& inFile);
 short identExist(string& ident_string);
-void solveExpression(string& inLine, unsigned startPos);
+unsigned solveExpression(string& inLine, unsigned startPos);
 unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOperator);
 bool checkSemicolon(string& inLine, unsigned startPos);
 
@@ -130,7 +134,18 @@ void translateToAsm(fstream& inFile)
 {
     checkPROGRAM(inFile);
     string inLine = checkVarDec(inFile);
-    checkProgramBody(inLine, inFile);
+    do
+    {
+        checkProgramBody(inLine, inFile);
+        inLine = skipEmptyLines(inFile);
+    } while (inLine != "");
+
+    if(total_unclosed_blocks>0)
+    {
+        cout<<CLOSE_BLOCK_EXPECTED(line_number)<<endl;
+        exit(0);
+    }
+    cout << "DONE" << endl;
 }
 
 unsigned skipWordBreaks(const string& inLine, unsigned startPos)
@@ -321,6 +336,7 @@ void checkPROGRAM(fstream& inFile)
         cout << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
         exit(0);
     }
+    ++total_unclosed_blocks;
 }
 
 string checkVarDec(fstream& inFile)
@@ -351,7 +367,7 @@ string checkVarDec(fstream& inFile)
         i = skipWordBreaks(inLine, 0);
         if (inLine.substr(i, 3) != gVAR)
         {
-            cout << "SUCCESS" << endl;
+            cout << "VAR" << endl;
             return inLine;
         }
         if (i + 3 >= skipWordBreaks(inLine, i + 3))
@@ -422,136 +438,214 @@ string checkVarDec(fstream& inFile)
 void checkProgramBody(string& inLine, fstream& inFile)
 {
     unsigned i;
-    do
+
+    i = skipWordBreaks(inLine, 0);
+
+    if (i == checkIdent(inLine, i))
     {
-        i = skipWordBreaks(inLine, 0);
+        string ident_string = inLine.substr(i, 2);
+        i = skipWordBreaks(inLine, i + 2);
 
-        if (i == checkIdent(inLine, i))
+        if (inLine.substr(i, 2) != gASSIGNMENT)
         {
-            string ident_string = inLine.substr(i, 2);
-            i = skipWordBreaks(inLine, i + 2);
-
-            if (inLine.substr(i, 2) != gASSIGNMENT)
-            {
-                cout << TOKEN_EXPECTED(line_number, ident_string, gASSIGNMENT) << endl;
-                exit(0);
-            }
-
-            i = skipWordBreaks(inLine, i + 2);
-
-            solveExpression(inLine, i);
+            cout << TOKEN_EXPECTED(line_number, ident_string, gASSIGNMENT) << endl;
+            exit(0);
         }
-        else if (inLine.substr(i, 4) == gSCAN)
+
+        i = skipWordBreaks(inLine, i + 2);
+
+        i = solveExpression(inLine, i);
+
+        if (!checkSemicolon(inLine, i))
         {
-            if (i + 4 == skipWordBreaks(inLine, i + 4))
-            {
-                cout << WORD_BREAK_EXPECTED(line_number, gSCAN) << endl;
-                exit(0);
-            }
-
-            i = skipWordBreaks(inLine, i + 4);
-
-            if (i != checkIdent(inLine, i))
-            {
-                cout << IDENT_EXPECTED(line_number, gSCAN) << endl;
-                exit(0);
-            }
-
-            string ident_string = inLine.substr(i, 2);
-
-            short ident = identExist(ident_string);
-
-            i = skipWordBreaks(inLine, i + 2);
-
-            if (!checkSemicolon(inLine, i))
-            {
-                cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
-                exit(0);
-            }
-
-            // to do: generate code
-
-            // we found SCAN
-            cout << "SCAN found" << endl;
+            cout << SEMICOLON_EXPECTED(line_number, "Position " + to_string(i)) << endl;
+            exit(0);
         }
-        else if (inLine.substr(i, 5) == gPRINT)
+
+        // to do:generate assigning asm code
+    }
+    else if (inLine.substr(i, 4) == gSCAN)
+    {
+        if (i + 4 == skipWordBreaks(inLine, i + 4))
         {
-            if (i + 5 == skipWordBreaks(inLine, i + 5))
-            {
-                cout << WORD_BREAK_EXPECTED(line_number, gPRINT) << endl;
-                exit(0);
-            }
-
-            i = skipWordBreaks(inLine, i + 5);
-
-            if (i != checkIdent(inLine, i))
-            {
-                cout << IDENT_EXPECTED(line_number, gPRINT) << endl;
-                exit(0);
-            }
-
-            string ident_string = inLine.substr(i, 2);
-
-            short ident = identExist(ident_string);
-
-            i = skipWordBreaks(inLine, i + 2);
-
-            if (!checkSemicolon(inLine, i))
-            {
-                cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
-                exit(0);
-            }
-
-            // to do: generate code
-
-            // we found PRINT
-            cout << "PRINT found" << endl;
+            cout << WORD_BREAK_EXPECTED(line_number, gSCAN) << endl;
+            exit(0);
         }
-        else if (inLine.substr(i, 5) == gWHILE)
-        {
 
+        i = skipWordBreaks(inLine, i + 4);
 
-            // we found WHILE
-            cout << "WHILE found" << endl;
-        }
-        else if (inLine.substr(i, 3) == gEND)
+        if (i != checkIdent(inLine, i))
         {
-            // we found END
-            cout << "END found" << endl;
+            cout << IDENT_EXPECTED(line_number, gSCAN) << endl;
+            exit(0);
         }
-        else
+
+        string ident_string = inLine.substr(i, 2);
+
+        short ident = identExist(ident_string);
+
+        i = skipWordBreaks(inLine, i + 2);
+
+        if (!checkSemicolon(inLine, i))
         {
-            // error bad token
-            cout << "error bad token in line: " << line_number << endl;
+            cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
+            exit(0);
+        }
+
+        // to do: generate code
+
+        // we found SCAN
+        cout << "SCAN found" << endl;
+    }
+    else if (inLine.substr(i, 5) == gPRINT)
+    {
+        if (i + 5 == skipWordBreaks(inLine, i + 5))
+        {
+            cout << WORD_BREAK_EXPECTED(line_number, gPRINT) << endl;
+            exit(0);
+        }
+
+        i = skipWordBreaks(inLine, i + 5);
+
+        if (i != checkIdent(inLine, i))
+        {
+            cout << IDENT_EXPECTED(line_number, gPRINT) << endl;
+            exit(0);
+        }
+
+        string ident_string = inLine.substr(i, 2);
+
+        short ident = identExist(ident_string);
+
+        i = skipWordBreaks(inLine, i + 2);
+
+        if (!checkSemicolon(inLine, i))
+        {
+            cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
+            exit(0);
+        }
+
+        // to do: generate code
+
+        // we found PRINT
+        cout << "PRINT found" << endl;
+    }
+    else if (inLine.substr(i, 5) == gWHILE)
+    {
+        if (i + 5 == skipWordBreaks(inLine, i + 5))
+        {
+            cout << WORD_BREAK_EXPECTED(line_number, gWHILE) << endl;
+            exit(0);
+        }
+
+        i = skipWordBreaks(inLine, i + 5);
+
+        i = solveExpression(inLine, i);
+
+        if (inLine[i - 1] != ' ' && inLine[i - 1] != '\t')
+        {
+            cout << WORD_BREAK_EXPECTED(line_number, "Position " + to_string(i)) << endl;
+            exit(0);
+        }
+
+        if (inLine.substr(i, 2) != gDO)
+        {
+            cout << TOKEN_EXPECTED(line_number, "Condition", gDO) << endl;
+            exit(0);
+        }
+
+        i = skipWordBreaks(inLine, i + 2);
+
+        if (i != inLine.length())
+        {
+            cout << NEW_LINE_EXPECTED(line_number, gDO) << endl;
+            exit(0);
         }
 
         inLine = skipEmptyLines(inFile);
 
-    } while (inLine != "");
+        i = skipWordBreaks(inLine, 0);
+
+        if (inLine.substr(i, 5) != gBEGIN)
+        {
+            cout << TOKEN_EXPECTED(line_number, gDO, gBEGIN) << endl;
+            exit(0);
+        }
+
+        i = skipWordBreaks(inLine, i + 5);
+
+        if (i != inLine.length())
+        {
+            cout << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
+            exit(0);
+        }
+
+        ++total_unclosed_blocks;
+        // to do: generate  code;
+
+        // we found WHILE
+        cout << "WHILE found" << endl;
+    }
+    else if (inLine.substr(i, 3) == gEND)
+    {
+        i = skipWordBreaks(inLine, i + 3);
+
+        --total_unclosed_blocks;
+
+        if (i != inLine.length())
+        {
+            cout << NEW_LINE_EXPECTED(line_number, gEND) << endl;
+            exit(0);
+        }
+
+        if (total_unclosed_blocks < 0)
+        {
+            cout << OPEN_BLOCK_EXPECTED(line_number) << endl;
+            exit(0);
+        }
+        else if (total_unclosed_blocks == 0)
+        {
+            inLine = skipEmptyLines(inFile);
+            if (inLine != "")
+            {
+                short program_end_line = line_number;
+                cout << NO_TOKENS_EXPECTED(line_number, "end of the program: \"END\" in line " + to_string(program_end_line)) << endl;
+                exit(0);
+            }
+        }
+        // we found END
+        cout << "END found" << endl;
+    }
+    else
+    {
+        // error bad token
+        cout <<UNEXPECTED_TOKEN(line_number) << endl;
+        exit(0);
+    }
 }
 
-void solveExpression(string& inLine, unsigned startPos)
+unsigned solveExpression(string& inLine, unsigned startPos)
 {
     // or just have the lowest priority
     startPos = solveExpressionPart(inLine, startPos, gOR);
     gOperator curOperator;
+    curOperator = getNextOperator(inLine, startPos);
 
-    while (startPos != inLine.length())
+    while (curOperator.name != gUNKNOWN_OPERATOR.name)
     {
-        curOperator = getNextOperator(inLine, startPos);
-
         startPos = solveExpressionPart(inLine, startPos + curOperator.name.length(), curOperator);
+        curOperator = getNextOperator(inLine, startPos);
     }
-    // to do: skip empty spaces
+    return startPos;
 }
 
 unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOperator)
 {
     startPos = skipWordBreaks(inLine, startPos);
-    if (inLine.substr(startPos, 1) == gBLOCK_START.name)
+    if (inLine.substr(startPos, 1) == gOPEN_BRACKET.name)
     {
-        ++total_brackets;
-        return solveExpressionPart(inLine, startPos + 1, gBLOCK_START);
+        ++total_unclosed_brackets;
+        return solveExpressionPart(inLine, startPos + 1, gOPEN_BRACKET);
     }
     else if (inLine.substr(startPos, 2) == gNOT.name)
     {
@@ -565,40 +659,30 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         startPos = skipWordBreaks(inLine, startPos + 2);
 
-        if (checkSemicolon(inLine, startPos))
+        while (inLine.substr(startPos, 1) == gCLOSE_BRACKET.name)
         {
-            if (total_brackets > 0)
-            {
-                cout << CLOSE_BRACKET_EXPECTED(line_number) << endl;
-                exit(0);
-            }
-            // to do: generate code
-            return inLine.length();
-        }
-
-        while (inLine.substr(startPos, 1) == gBLOCK_END.name)
-        {
-            --total_brackets;
-            if (total_brackets < 0)
+            --total_unclosed_brackets;
+            if (total_unclosed_brackets < 0)
             {
                 cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
                 exit(0);
             }
 
             startPos = skipWordBreaks(inLine, startPos + 1);
-            if (checkSemicolon(inLine, startPos))
-            {
-                // to do: generate code
-                return inLine.length();
-            }
+
             // to do: generate code
-            if (inLine.substr(startPos, 1) != gBLOCK_END.name)
+            if (inLine.substr(startPos, 1) != gCLOSE_BRACKET.name)
             {
                 return startPos;
             }
         }
 
         gOperator nextOperator = getNextOperator(inLine, startPos);
+
+        if (nextOperator.name == gUNKNOWN_OPERATOR.name)
+        {
+            return startPos;
+        }
 
         if (nextOperator.priority <= prevOperator.priority)
         {
@@ -615,7 +699,7 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
         string constStr = inLine.substr(startPos, constEnd - startPos);
         short constNum = stoi(constStr);
 
-        if (constNum < 0 && prevOperator.name != gBLOCK_START.name)
+        if (constNum < 0 && prevOperator.name != gOPEN_BRACKET.name)
         {
             cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
             exit(0);
@@ -623,35 +707,20 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         startPos = skipWordBreaks(inLine, constEnd);
 
-        if (checkSemicolon(inLine, startPos))
+        while (inLine.substr(startPos, 1) == gCLOSE_BRACKET.name)
         {
-            if (total_brackets > 0)
-            {
-                cout << CLOSE_BRACKET_EXPECTED(line_number) << endl;
-                exit(0);
-            }
-            // to do: generate code
-            return inLine.length();
-        }
-
-        while (inLine.substr(startPos, 1) == gBLOCK_END.name)
-        {
-            --total_brackets;
-            if (total_brackets < 0)
+            --total_unclosed_brackets;
+            if (total_unclosed_brackets < 0)
             {
                 cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
                 exit(0);
             }
 
             startPos = skipWordBreaks(inLine, startPos + 1);
-            if (checkSemicolon(inLine, startPos))
-            {
-                // to do: generate code
-                return inLine.length();
-            }
+
             // to do: generate code
 
-            if (inLine.substr(startPos, 1) != gBLOCK_END.name)
+            if (inLine.substr(startPos, 1) != gCLOSE_BRACKET.name)
             {
                 return startPos;
             }
@@ -659,6 +728,10 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         gOperator nextOperator = getNextOperator(inLine, startPos);
 
+        if (nextOperator.name == gUNKNOWN_OPERATOR.name)
+        {
+            return startPos;
+        }
         if (nextOperator.priority <= prevOperator.priority)
         {
             // to do: generate code for current operator
@@ -747,7 +820,6 @@ gOperator getNextOperator(string& inLine, unsigned pos)
     }
     else
     {
-        cout << UNEXPECTED_TOKEN(line_number) << endl;
-        exit(0);
+        return gUNKNOWN_OPERATOR;
     }
 }

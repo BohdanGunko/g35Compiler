@@ -3,9 +3,27 @@ BEGIN
 #*esttest*#	
 VAR af;
 VAR a2->5000;
+VAR a3->5000;
 PRINT a2;
 SCAN a2;
-af->(-1)+a2MOD8;
-WHILE
+
+af->(-1)+    a2 MOD8;
 
 
+WHILE (-1)+    a2 MOD8 DO
+
+ BEGIN
+
+
+
+ af->(-1)+    a2 MOD8;
+ af->(-1)+    a2 MOD9;
+ af->(-1)+    a2 MOD8;
+WHILE (-1)+    a2 MOD8 DO
+ BEGIN
+
+END
+END
+
+
+END
