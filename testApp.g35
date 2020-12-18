@@ -2,42 +2,19 @@ PROGRAM	tb ;
 BEGIN
 #*esttest*#	
 VAR v0 ->0;
-VAR v1 ->1;
+VAR v1 ->87;
 VAR re;
 
 
-
-
-re -> 2>>1;
+re-> (v0||v1) &&(10||2);
 PRINT re;
-re -> 1>>2;
-PRINT re;
-re -> 5>>5;
+
+re-> (v1>>10)||(v1<>50);
 PRINT re;
 
 
-re -> 2==1;
-PRINT re;
-re -> 1==2;
-PRINT re;
-re -> 5==5;
-PRINT re;
 
 
-re -> 2<>1;
-PRINT re;
-re -> 1<>2;
-PRINT re;
-re -> 5<>5;
-PRINT re;
-
-
-re -> 2<<1;
-PRINT re;
-re -> 1<<2;
-PRINT re;
-re -> 5<<5;
-PRINT re;
 
 
 

@@ -31,8 +31,8 @@ void codeGenerator::createFile(string& filePath)
                          "\n.data\n"
                          "    tmpLeftOperand dw 0\n"
                          "	tmpRightOperand dw 0\n"
-                         "	gPrintFormat db \"%d\",13,10,0\n"
-                         "	gScanFormat db \"%d\",0\n"
+                         "	gPrintFormat db \"%hd\",13,10,0\n"
+                         "	gScanFormat db \"%hd\",0\n"
                          "	pressAnyKeyMsg db \"Press any key to exit...\",0\n";
 }
 
@@ -53,7 +53,7 @@ void codeGenerator::declareVar(string& varName, short varValue)
 
 void codeGenerator::starCode()
 {
-    asmFile << "\n.code\n_" + programName + ":\n";
+    asmFile << "\n.code\n_" + programName + ":\n\n";
 }
 
 void codeGenerator::endCode()
@@ -68,37 +68,32 @@ void codeGenerator::endCode()
 
 void codeGenerator::scanCode(string& varName)
 {
-    asmFile << "invoke crt_scanf, addr gScanFormat, addr _" << varName << "\n";
+    asmFile << "invoke crt_scanf, addr gScanFormat, addr _" << varName << "\n\n";
 }
 
 void codeGenerator::printCode(string& varName)
 {
-    asmFile << "invoke crt_printf, addr gPrintFormat, _" << varName << "\n";
+    asmFile << "invoke crt_printf, addr gPrintFormat, _" << varName << "\n\n";
 }
 
 void codeGenerator::assignmentCode(string& varName)
 {
-    asmFile << "mov _" + varName << ", cx\n";
-}
-
-void codeGenerator::pushIdent(string& varName)
-{
-    asmFile << "push _" + varName + "\n";
-}
-
-void codeGenerator::pushConst(string& constName)
-{
-    asmFile << "push word ptr " + constName + "\n";
+    asmFile << "mov _" + varName << ", cx\n\n";
 }
 
 void codeGenerator::regMov(string rightOperand)
 {
-    asmFile << "mov bx, " << rightOperand << "\n";
+    asmFile << "mov bx, " << rightOperand << "\n\n";
 }
 
-void codeGenerator::movCx()
+void codeGenerator::movCxBx()
 {
-    asmFile << "mov cx, bx\n";
+    asmFile << "mov cx, bx\n\n";
+}
+
+void codeGenerator::movBxCx()
+{
+    asmFile << "mov bx, cx\n\n";
 }
 
 void codeGenerator::regOperator(string& operatorName, string leftOperand)
@@ -126,32 +121,28 @@ void codeGenerator::regOperator(string& operatorName, string leftOperand)
         asmFile << "cmp bx, " << leftOperand
                         << "\n"
                              "sete bl\n"
-                             "movzx bx, bl\n"
-                             "\n";
+                             "movzx bx, bl\n\n";
     }
     else if (operatorName == "<>")
     {
         asmFile << "cmp bx, " << leftOperand
                         << "\n"
                              "setne bl\n"
-                             "movzx bx, bl\n"
-                             "\n";
+                             "movzx bx, bl\n\n";
     }
     else if (operatorName == ">>")
     {
         asmFile << "cmp " << leftOperand << ", bx\n"
                         << "\n"
                              "setg bl\n"
-                             "movzx bx, bl\n"
-                             "\n";
+                             "movzx bx, bl\n\n";
     }
     else if (operatorName == "<<")
     {
         asmFile << "cmp " << leftOperand << ", bx\n"
                         << "\n"
                              "setl bl\n"
-                             "movzx bx, bl\n"
-                             "\n";
+                             "movzx bx, bl\n\n";
     }
     else if (operatorName == "&&")
     {
@@ -214,4 +205,15 @@ void codeGenerator::regOperator(string& operatorName, string leftOperand)
         cout << "BAD OPERATOR" << endl;
         exit(0);
     }
+}
+
+void codeGenerator::pushCx()
+{
+    asmFile << "push cx\n\n";
+}
+
+void codeGenerator::popCx()
+{
+    asmFile << "mov cx, [esp]\n"
+                         "add esp, 2\n\n";
 }

@@ -637,7 +637,7 @@ unsigned solveExpression(string& inLine, unsigned startPos)
     {
         startPos = solveExpressionPart(inLine, startPos + curOperator.name.length(), curOperator);
         generateCode.regOperator(curOperator.name, "cx");
-        generateCode.movCx();
+        generateCode.movCxBx();
 
         curOperator = getNextOperator(inLine, startPos);
         cout << curOperator.name << endl;
@@ -661,17 +661,22 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
         gOperator nextOperator = gUNKNOWN_OPERATOR;
 
         generateCode.pushCx();
+        ++startPos;
 
         do
         {
-            // change gOPEN_BRACKEt
-            startPos = solveExpressionPart(inLine, startPos + 1, nextOperator);
+            startPos = solveExpressionPart(inLine, startPos + nextOperator.name.length(), nextOperator);
+            generateCode.regOperator(nextOperator.name, "cx");
+            generateCode.movCxBx();
             nextOperator = getNextOperator(inLine, startPos);
+
             if (nextOperator.name == gUNKNOWN_OPERATOR.name)
             {
+                generateCode.movBxCx();
+                generateCode.popCx();
                 return startPos;
             }
-        } while (t_u_b < total_unclosed_brackets);
+        } while (t_u_b < total_unclosed_brackets && startPos < inLine.length() - 1);
 
         if (t_u_b > total_unclosed_brackets)
         {
@@ -680,17 +685,22 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         if (nextOperator.name == gUNKNOWN_OPERATOR.name)
         {
-            cout << "" << endl;
+            generateCode.movBxCx();
+            generateCode.popCx();
             return startPos;
         }
 
         if (nextOperator.priority <= prevOperator.priority)
         {
-            // to do: generate code for current operator
+            generateCode.movBxCx();
+            generateCode.popCx();
             return startPos;
         }
 
         startPos = solveExpressionPart(inLine, startPos + nextOperator.name.length(), prevOperator);
+
+        generateCode.regOperator(nextOperator.name, "cx");
+        generateCode.popCx();
 
         cout << prevOperator.name << endl;
         cout << "ident_string"

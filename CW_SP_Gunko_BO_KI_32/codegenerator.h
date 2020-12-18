@@ -26,11 +26,12 @@ public:
     void scanCode(string& varName);
     void printCode(string& varName);
     void assignmentCode(string& varName);
-    void pushIdent(string& varName);
-    void pushConst(string& constName);
     void regMov(string rightOperand);
-    void movCx();
+    void movCxBx();
+    void movBxCx();
     void regOperator(string& operatorName, string leftOperand);
+    void pushCx();
+    void popCx();
 };
 
 #endif	// CODEGENERATOR_H
