@@ -150,7 +150,8 @@ void translateToAsm(fstream& inFile)
     }
 
     generateCode.endCode();
-    cout << "DONE" << endl;
+
+    generateCode.assembleFile();
 }
 
 unsigned skipWordBreaks(const string& inLine, unsigned startPos)
@@ -543,7 +544,10 @@ void checkProgramBody(string& inLine, fstream& inFile)
             exit(0);
         }
 
+        generateCode.whileStart();
+
         i = skipWordBreaks(inLine, i + 5);
+
 
         i = solveExpression(inLine, i);
 
@@ -577,6 +581,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
             exit(0);
         }
 
+
         i = skipWordBreaks(inLine, i + 5);
 
         if (i != inLine.length())
@@ -586,10 +591,8 @@ void checkProgramBody(string& inLine, fstream& inFile)
         }
 
         ++total_unclosed_blocks;
-        // to do: generate  code;
 
-        // we found WHILE
-        cout << "WHILE found" << endl;
+        generateCode.whileCmp();
     }
     else if (inLine.substr(i, 3) == gEND)
     {
@@ -617,9 +620,10 @@ void checkProgramBody(string& inLine, fstream& inFile)
                 cout << NO_TOKENS_EXPECTED(line_number, "end of the program: \"END\" in line " + to_string(program_end_line)) << endl;
                 exit(0);
             }
+            return;
         }
-        // we found END
-        cout << "END found" << endl;
+
+        generateCode.whileEnd();
     }
     else
     {

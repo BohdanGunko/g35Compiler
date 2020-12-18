@@ -8,15 +8,17 @@ using namespace std;
 
 class codeGenerator
 {
-public:
+protected:
     fstream asmFile;
     string filePath;
     string programName;
-    string preinitStr;
+    unsigned blocks_count = 0;
     unsigned andOperatorsCounter = 1;
 
+public:
     codeGenerator();
     ~codeGenerator();
+
     void createFile(string& filePath);
     void setProgramName(string& programName);
     void declareVar(string& varName);
@@ -32,6 +34,10 @@ public:
     void regOperator(string& operatorName, string leftOperand);
     void pushCx();
     void popCx();
+    void whileStart();
+    void whileCmp();
+    void whileEnd();
+    void assembleFile();
 };
 
 #endif	// CODEGENERATOR_H

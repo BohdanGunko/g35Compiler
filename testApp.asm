@@ -9,127 +9,55 @@ includelib \masm32\lib\msvcrt.lib
 .data
     tmpLeftOperand dw 0
 	tmpRightOperand dw 0
-	gPrintFormat db "%hd",13,10,0
+	gPrintFormat db "%s = %hd",13,10,0
+	gPrintBeforeScan db "Enter %s = ",0
 	gScanFormat db "%hd",0
 	pressAnyKeyMsg db "Press any key to exit...",0
-	_v0 dw 0
-	_v1 dw 87
-	_re dw ?
+	_i1 dw 0
+	_i1_gName db "i1",0
+	_p1 dw 1
+	_p1_gName db "p1",0
+	_p2 dw 0
+	_p2_gName db "p2",0
+	_tm dw 0
+	_tm_gName db "tm",0
 
 .code
 _tb:
-
-push cx
-
-mov bx, _v0
-
+invoke crt_printf, addr gPrintBeforeScan, addr _i1_gName, _i1
+invoke crt_scanf, addr gScanFormat, addr _i1
+_while_begin_1:
+mov bx, _i1
 mov cx, bx
-
-mov bx, _v1
-
-or bx, cx
-cmp bx, 0
-setne bl
-movzx bx, bl
-
-mov cx, bx
-
-mov bx, cx
-
-mov cx, [esp]
-add esp, 2
-
-mov cx, bx
-
-push cx
-
-mov bx, 10
-
-mov cx, bx
-
-mov bx, 2
-
-or bx, cx
-cmp bx, 0
-setne bl
-movzx bx, bl
-
-mov cx, bx
-
-mov bx, cx
-
-mov cx, [esp]
-add esp, 2
-
-cmp cx, 0
-je _LAND_1
-cmp bx, 0
-je _LAND_1
-mov bx, 1
-jmp _LAND_RES_1
-_LAND_1:
-mov bx, 0
-_LAND_RES_1:
-
-mov cx, bx
-
-mov _re, cx
-
-invoke crt_printf, addr gPrintFormat, _re
-
-push cx
-
-mov bx, _v1
-
-mov cx, bx
-
-mov bx, 10
-
+mov bx, 23
 cmp cx, bx
-
-setg bl
+setl bl
 movzx bx, bl
-
 mov cx, bx
-
-mov bx, cx
-
-mov cx, [esp]
-add esp, 2
-
+cmp cx, 0
+je _while_end_1
+invoke crt_printf, addr gPrintFormat, addr _p1_gName, _p1
+mov bx, _p1
 mov cx, bx
-
-push cx
-
-mov bx, _v1
-
+mov _tm, cx
+mov bx, _p1
 mov cx, bx
-
-mov bx, 50
-
-cmp bx, cx
-setne bl
-movzx bx, bl
-
+mov bx, _p2
+add bx, cx
 mov cx, bx
-
-mov bx, cx
-
-mov cx, [esp]
-add esp, 2
-
-or bx, cx
-cmp bx, 0
-setne bl
-movzx bx, bl
-
+mov _p1, cx
+mov bx, _tm
 mov cx, bx
-
-mov _re, cx
-
-invoke crt_printf, addr gPrintFormat, _re
-
+mov _p2, cx
+mov bx, _i1
+mov cx, bx
+mov bx, 1
+add bx, cx
+mov cx, bx
+mov _i1, cx
+jmp _while_begin_1
+_while_end_1:
 invoke crt_printf, addr pressAnyKeyMsg
 invoke  crt__getch
-invoke ExitProcess, 0
+ret
 end _tb

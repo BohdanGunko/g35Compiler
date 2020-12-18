@@ -1,22 +1,27 @@
 PROGRAM	tb ;
 BEGIN
-#*esttest*#	
-VAR v0 ->0;
-VAR v1 ->87;
-VAR re;
-
-
-re-> (v0||v1) &&(10||2);
-PRINT re;
-
-re-> (v1>>10)||(v1<>50);
-PRINT re;
-
-
-
-
-
-
-
-
+	VAR i1 -> 0;
+	VAR p1 -> 1;
+	VAR p2 -> 0;
+	VAR tm -> 0;
+	SCAN i1;
+	
+	
+	WHILE i1<<23 DO
+	BEGIN
+		PRINT p1;
+		
+		tm -> p1;
+		p1->p1+p2;
+		p2->tm;
+		i1 -> i1+1;
+		
+		
+		
+		
+		
+	END
 END
+
+
+
