@@ -3,6 +3,7 @@
 #include <string>
 #include <regex>
 #include <vector>
+#include "codegenerator.h"
 using namespace std;
 
 // PRIORITY0 is the highest prioruty
@@ -48,7 +49,7 @@ gOperator gAND = { "&&", PRIORYTY6 };
 gOperator gOR = { "||", PRIORYTY7 };
 gOperator gOPEN_BRACKET = { "(", PRIORYTY0 };
 gOperator gCLOSE_BRACKET = { ")", PRIORYTY0 };
-gOperator gUNKNOWN_OPERATOR = { "UNKNOWN", PRIORYTY7 };
+gOperator gUNKNOWN_OPERATOR = { "", PRIORYTY0 };
 
 #define NO_ENTRY_POINT(ln) "Error in line " + to_string(ln) + ":No entry point, expected token \"PROGRAM\""
 #define BEGIN_EXPECTED(ln) "Error in line " + to_string(ln) + ":Expected token \"BEGIN\""
@@ -81,6 +82,7 @@ int line_number = 0;
 short total_unclosed_brackets = 0;
 short total_unclosed_blocks = 0;
 vector<identifier>* ident_table;
+codeGenerator generateCode;
 
 short checkForDuplicats(string& ident_string);
 unsigned getConst(string& inLine, unsigned pos);
@@ -122,6 +124,7 @@ enter_file_name:
     }
 
     ident_table = new vector<identifier>;
+    generateCode.createFile(filePath);
     translateToAsm(inFile);
 
     inFile.close();
@@ -140,11 +143,13 @@ void translateToAsm(fstream& inFile)
         inLine = skipEmptyLines(inFile);
     } while (inLine != "");
 
-    if(total_unclosed_blocks>0)
+    if (total_unclosed_blocks > 0)
     {
-        cout<<CLOSE_BLOCK_EXPECTED(line_number)<<endl;
+        cout << CLOSE_BLOCK_EXPECTED(line_number) << endl;
         exit(0);
     }
+
+    generateCode.endCode();
     cout << "DONE" << endl;
 }
 
@@ -305,12 +310,12 @@ void checkPROGRAM(fstream& inFile)
         cout << IDENT_EXPECTED(line_number, gPROGRAM) << endl;
         exit(0);
     }
-    string pName = inLine.substr(i, 2);
+    string programName = inLine.substr(i, 2);
 
     i = skipWordBreaks(inLine, i + 2);
     if (i >= inLine.length() || inLine[i] != ';')
     {
-        cout << SEMICOLON_EXPECTED(line_number, pName) << endl;
+        cout << SEMICOLON_EXPECTED(line_number, programName) << endl;
         exit(0);
     }
 
@@ -337,6 +342,8 @@ void checkPROGRAM(fstream& inFile)
         exit(0);
     }
     ++total_unclosed_blocks;
+
+    generateCode.setProgramName(programName);
 }
 
 string checkVarDec(fstream& inFile)
@@ -367,7 +374,7 @@ string checkVarDec(fstream& inFile)
         i = skipWordBreaks(inLine, 0);
         if (inLine.substr(i, 3) != gVAR)
         {
-            cout << "VAR" << endl;
+            generateCode.starCode();
             return inLine;
         }
         if (i + 3 >= skipWordBreaks(inLine, i + 3))
@@ -395,6 +402,7 @@ string checkVarDec(fstream& inFile)
                 exit(0);
             }
             ident_table->push_back(identifier{ ident, 0 });
+            generateCode.declareVar(ident_string);
             inLine = skipEmptyLines(inFile);
             continue;
         }
@@ -424,6 +432,8 @@ string checkVarDec(fstream& inFile)
             }
 
             ident_table->push_back(identifier{ ident, constantVal });
+
+            generateCode.declareVar(ident_string, constantVal);
             inLine = skipEmptyLines(inFile);
         }
 
@@ -462,6 +472,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
             exit(0);
         }
 
+        generateCode.assignmentCode(ident_string);
         // to do:generate assigning asm code
     }
     else if (inLine.substr(i, 4) == gSCAN)
@@ -492,10 +503,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
             exit(0);
         }
 
-        // to do: generate code
-
-        // we found SCAN
-        cout << "SCAN found" << endl;
+        generateCode.scanCode(ident_string);
     }
     else if (inLine.substr(i, 5) == gPRINT)
     {
@@ -525,10 +533,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
             exit(0);
         }
 
-        // to do: generate code
-
-        // we found PRINT
-        cout << "PRINT found" << endl;
+        generateCode.printCode(ident_string);
     }
     else if (inLine.substr(i, 5) == gWHILE)
     {
@@ -619,22 +624,28 @@ void checkProgramBody(string& inLine, fstream& inFile)
     else
     {
         // error bad token
-        cout <<UNEXPECTED_TOKEN(line_number) << endl;
+        cout << UNEXPECTED_TOKEN(line_number) << endl;
         exit(0);
     }
 }
 
 unsigned solveExpression(string& inLine, unsigned startPos)
 {
-    // or just have the lowest priority
-    startPos = solveExpressionPart(inLine, startPos, gOR);
-    gOperator curOperator;
-    curOperator = getNextOperator(inLine, startPos);
+    gOperator curOperator = gUNKNOWN_OPERATOR;
 
-    while (curOperator.name != gUNKNOWN_OPERATOR.name)
+    do
     {
         startPos = solveExpressionPart(inLine, startPos + curOperator.name.length(), curOperator);
+        generateCode.regOperator(curOperator.name, "cx");
+        generateCode.movCx();
+
         curOperator = getNextOperator(inLine, startPos);
+        cout << curOperator.name << endl;
+    } while (curOperator.name != gUNKNOWN_OPERATOR.name);
+    if (total_unclosed_brackets != 0)
+    {
+        cout << CLOSE_BRACKET_EXPECTED(line_number) << endl;
+        exit(0);
     }
     return startPos;
 }
@@ -644,13 +655,57 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
     startPos = skipWordBreaks(inLine, startPos);
     if (inLine.substr(startPos, 1) == gOPEN_BRACKET.name)
     {
+        cout << "(" << endl;
+        short t_u_b = total_unclosed_brackets;
         ++total_unclosed_brackets;
-        return solveExpressionPart(inLine, startPos + 1, gOPEN_BRACKET);
+        gOperator nextOperator = gUNKNOWN_OPERATOR;
+
+        generateCode.pushCx();
+
+        do
+        {
+            // change gOPEN_BRACKEt
+            startPos = solveExpressionPart(inLine, startPos + 1, nextOperator);
+            nextOperator = getNextOperator(inLine, startPos);
+            if (nextOperator.name == gUNKNOWN_OPERATOR.name)
+            {
+                return startPos;
+            }
+        } while (t_u_b < total_unclosed_brackets);
+
+        if (t_u_b > total_unclosed_brackets)
+        {
+            return startPos;
+        }
+
+        if (nextOperator.name == gUNKNOWN_OPERATOR.name)
+        {
+            cout << "" << endl;
+            return startPos;
+        }
+
+        if (nextOperator.priority <= prevOperator.priority)
+        {
+            // to do: generate code for current operator
+            return startPos;
+        }
+
+        startPos = solveExpressionPart(inLine, startPos + nextOperator.name.length(), prevOperator);
+
+        cout << prevOperator.name << endl;
+        cout << "ident_string"
+                        ""
+                 << endl;
+
+        return startPos;
     }
     else if (inLine.substr(startPos, 2) == gNOT.name)
     {
-        // to do: generate code
-        return solveExpressionPart(inLine, startPos + 2, gNOT);
+        cout << "!!" << endl;
+
+        startPos = solveExpressionPart(inLine, startPos + 2, gNOT);
+        generateCode.regOperator(gNOT.name, "");
+        return startPos;
     }
     else if (startPos == checkIdent(inLine, startPos))
     {
@@ -670,9 +725,11 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
             startPos = skipWordBreaks(inLine, startPos + 1);
 
-            // to do: generate code
+            cout << ident_string << endl;
+            cout << ")" << endl;
             if (inLine.substr(startPos, 1) != gCLOSE_BRACKET.name)
             {
+                generateCode.regMov("_" + ident_string);
                 return startPos;
             }
         }
@@ -681,16 +738,24 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         if (nextOperator.name == gUNKNOWN_OPERATOR.name)
         {
+            cout << ident_string << endl;
+            generateCode.regMov("_" + ident_string);
             return startPos;
         }
 
         if (nextOperator.priority <= prevOperator.priority)
         {
-            // to do: generate code for current operator
+            generateCode.regMov("_" + ident_string);
             return startPos;
         }
 
-        return solveExpressionPart(inLine, startPos + nextOperator.name.length(), nextOperator);
+        startPos = solveExpressionPart(inLine, startPos + nextOperator.name.length(), prevOperator);
+
+        generateCode.regOperator(nextOperator.name, "_" + ident_string);
+
+        cout << ident_string << endl;
+
+        return startPos;
         // to do: generate asm code for nextOperator
     }
     else if (startPos != getConst(inLine, startPos))
@@ -699,7 +764,7 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
         string constStr = inLine.substr(startPos, constEnd - startPos);
         short constNum = stoi(constStr);
 
-        if (constNum < 0 && prevOperator.name != gOPEN_BRACKET.name)
+        if (constNum < 0 && prevOperator.name != gUNKNOWN_OPERATOR.name)
         {
             cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
             exit(0);
@@ -718,10 +783,11 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
             startPos = skipWordBreaks(inLine, startPos + 1);
 
-            // to do: generate code
-
+            cout << constStr << endl;
+            cout << ")" << endl;
             if (inLine.substr(startPos, 1) != gCLOSE_BRACKET.name)
             {
+                generateCode.regMov(constStr);
                 return startPos;
             }
         }
@@ -730,15 +796,19 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         if (nextOperator.name == gUNKNOWN_OPERATOR.name)
         {
+            cout << constStr << endl;
+            generateCode.regMov(constStr);
             return startPos;
         }
         if (nextOperator.priority <= prevOperator.priority)
         {
-            // to do: generate code for current operator
+            generateCode.regMov(constStr);
             return startPos;
         }
 
-        return solveExpressionPart(inLine, startPos + nextOperator.name.length(), nextOperator);
+        startPos = solveExpressionPart(inLine, startPos + nextOperator.name.length(), prevOperator);
+        generateCode.regOperator(nextOperator.name, constStr);
+        return startPos;
         // to do: generate asm code for nextOperator
     }
     else

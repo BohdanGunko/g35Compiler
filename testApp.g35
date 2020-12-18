@@ -1,29 +1,45 @@
 PROGRAM	tb ;
 BEGIN
 #*esttest*#	
-VAR af;
-VAR a2->5000;
-VAR a3->5000;
-PRINT a2;
-SCAN a2;
-
-af->(-1)+    a2 MOD8;
-
-
-WHILE (-1)+    a2 MOD8 DO
-
- BEGIN
+VAR v0 ->0;
+VAR v1 ->1;
+VAR re;
 
 
 
- af->(-1)+    a2 MOD8;
- af->(-1)+    a2 MOD9;
- af->(-1)+    a2 MOD8;
-WHILE (-1)+    a2 MOD8 DO
- BEGIN
 
-END
-END
+re -> 2>>1;
+PRINT re;
+re -> 1>>2;
+PRINT re;
+re -> 5>>5;
+PRINT re;
+
+
+re -> 2==1;
+PRINT re;
+re -> 1==2;
+PRINT re;
+re -> 5==5;
+PRINT re;
+
+
+re -> 2<>1;
+PRINT re;
+re -> 1<>2;
+PRINT re;
+re -> 5<>5;
+PRINT re;
+
+
+re -> 2<<1;
+PRINT re;
+re -> 1<<2;
+PRINT re;
+re -> 5<<5;
+PRINT re;
+
+
 
 
 END

@@ -4,6 +4,8 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += \
+        codegenerator.cpp \
         main.cpp
 
-HEADERS +=
+HEADERS += \
+    codegenerator.h
