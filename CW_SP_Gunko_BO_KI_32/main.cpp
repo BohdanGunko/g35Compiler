@@ -24,7 +24,7 @@ using namespace std;
 #define gPRINT "PRINT"
 #define gASSIGNMENT "->"
 #define gWHILE "WHILE"
-#define gDO "DO"
+#define gDO "DO"	//
 #define gCOM_ST "#*"
 #define gCOM_END "*#"
 #define gSEMICOLON ';'
@@ -79,18 +79,17 @@ struct identifier
 };
 
 int line_number = 0;
-short total_unclosed_brackets = 0;
-short total_unclosed_blocks = 0;
-vector<identifier>* ident_table;
+short unclosed_brackets_count = 0;
+short unclosed_clocks_count = 0;
+vector<identifier>* ident_list;
 codeGenerator generateCode;
 
 short checkForDuplicats(string& ident_string);
 unsigned getConst(string& inLine, unsigned pos);
 unsigned checkIdent(string& inLine, unsigned i);
 string skipEmptyLines(fstream& inFile);
+unsigned skipWordBreaks(const string& inLine, unsigned startPos);
 short identExist(string& ident_string);
-unsigned solveExpression(string& inLine, unsigned startPos);
-unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOperator);
 bool checkSemicolon(string& inLine, unsigned startPos);
 void erorExit();
 
@@ -98,6 +97,8 @@ void translateToAsm(fstream& inFile);
 void checkPROGRAM(fstream& inFile);
 string checkVarDec(fstream& inFile);
 void checkProgramBody(string& inLine, fstream& inFile);
+unsigned solveExpression(string& inLine, unsigned startPos);
+unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOperator);
 gOperator getNextOperator(string& inLine, unsigned pos);
 
 int main()
@@ -121,36 +122,63 @@ enter_file_name:
         goto enter_file_name;
     }
 
-    ident_table = new vector<identifier>;
+    ident_list = new vector<identifier>;
     generateCode.createFile(filePath);
     translateToAsm(inFile);
 
     inFile.close();
 
-    delete ident_table;
+    delete ident_list;
     return 1;
 }
 
-void translateToAsm(fstream& inFile)
+short checkForDuplicats(string& ident_string)
 {
-    checkPROGRAM(inFile);
-    string inLine = checkVarDec(inFile);
-    do
+    short ident = (short)ident_string[0] << 8 | (short)ident_string[1];
+    for (auto& i : *ident_list)
     {
-        checkProgramBody(inLine, inFile);
-        inLine = skipEmptyLines(inFile);
-    } while (inLine != "");
-
-    if (total_unclosed_blocks > 0)
-    {
-        cout << CLOSE_BLOCK_EXPECTED(line_number) << endl;
-        erorExit();
+        if (i.name == ident)
+        {
+            cout << IDENT_ALREADY_EXIST(line_number, ident_string) << endl;
+            erorExit();
+        }
     }
+    return ident;
+}
 
-    generateCode.endCode();
+unsigned getConst(string& inLine, unsigned pos)
+{
+    unsigned endPos = pos;
+    if (inLine[pos] == '-')
+        ++endPos;
 
-    cout << "Assembly code generated." << endl << endl;
-    generateCode.assembleFile();
+    regex rgx("[0-9]{1,}");
+    string num = "";
+    for (; endPos < inLine.length(); ++endPos)
+    {
+        num += inLine[endPos];
+        if (regex_match(num, rgx))
+        {
+            if (stoi(num) > 32767 || stoi(num) < -32768)
+            {
+                cout << CONSTANT_OUT_OF_RANGE(line_number) << endl;
+                erorExit();
+            }
+            else if (num.length() > 5)
+            {
+                cout << CONSTANT_TOO_LONG(line_number) << endl;
+                erorExit();
+            }
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (inLine[pos] == '-' && endPos - pos == 1)
+        --endPos;
+
+    return endPos;
 }
 
 unsigned skipWordBreaks(const string& inLine, unsigned startPos)
@@ -163,6 +191,20 @@ unsigned skipWordBreaks(const string& inLine, unsigned startPos)
         }
     }
     return inLine.length();
+}
+
+short identExist(string& ident_string)
+{
+    short ident = (short)ident_string[0] << 8 | (short)ident_string[1];
+    for (auto& i : *ident_list)
+    {
+        if (i.name == ident)
+        {
+            return ident;
+        }
+    }
+    cout << UNDECLARED_IDENT(line_number, ident_string) << endl;
+    erorExit();
 }
 
 string skipEmptyLines(fstream& inFile)
@@ -210,6 +252,51 @@ string skipEmptyLines(fstream& inFile)
     return "";
 }
 
+bool checkSemicolon(string& inLine, unsigned startPos)
+{
+    if (startPos < inLine.length() && inLine[startPos] == gSEMICOLON)
+    {
+        for (unsigned i = startPos + 1; i < inLine.length(); ++i)
+        {
+            if (inLine[i] != ' ' && inLine[i] != '\t')
+            {
+                cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
+                erorExit();
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+void erorExit()
+{
+    generateCode.clearFile();
+    exit(0);
+}
+
+void translateToAsm(fstream& inFile)
+{
+    checkPROGRAM(inFile);
+    string inLine = checkVarDec(inFile);
+    do
+    {
+        checkProgramBody(inLine, inFile);
+        inLine = skipEmptyLines(inFile);
+    } while (inLine != "");
+
+    if (unclosed_clocks_count > 0)
+    {
+        cout << CLOSE_BLOCK_EXPECTED(line_number) << endl;
+        erorExit();
+    }
+
+    generateCode.endCode();
+
+    cout << "Assembly code generated." << endl << endl;
+    generateCode.assembleFile();
+}
+
 unsigned checkIdent(string& inLine, unsigned i)
 {
     regex rgx("[a-z][a-z0-9]");
@@ -221,69 +308,6 @@ unsigned checkIdent(string& inLine, unsigned i)
         return ++i;
     }
     return i;
-}
-
-short checkForDuplicats(string& ident_string)
-{
-    short ident = (short)ident_string[0] << 8 | (short)ident_string[1];
-    for (auto& i : *ident_table)
-    {
-        if (i.name == ident)
-        {
-            cout << IDENT_ALREADY_EXIST(line_number, ident_string) << endl;
-            erorExit();
-        }
-    }
-    return ident;
-}
-
-short identExist(string& ident_string)
-{
-    short ident = (short)ident_string[0] << 8 | (short)ident_string[1];
-    for (auto& i : *ident_table)
-    {
-        if (i.name == ident)
-        {
-            return ident;
-        }
-    }
-    cout << UNDECLARED_IDENT(line_number, ident_string) << endl;
-    erorExit();
-}
-
-unsigned getConst(string& inLine, unsigned pos)
-{
-    unsigned endPos = pos;
-    if (inLine[pos] == '-')
-        ++endPos;
-
-    regex rgx("[0-9]{1,}");
-    string num = "";
-    for (; endPos < inLine.length(); ++endPos)
-    {
-        num += inLine[endPos];
-        if (regex_match(num, rgx))
-        {
-            if (stoi(num) > 32767 || stoi(num) < -32768)
-            {
-                cout << CONSTANT_OUT_OF_RANGE(line_number) << endl;
-                erorExit();
-            }
-            else if (num.length() > 5)
-            {
-                cout << CONSTANT_TOO_LONG(line_number) << endl;
-                erorExit();
-            }
-        }
-        else
-        {
-            break;
-        }
-    }
-    if (inLine[pos] == '-' && endPos - pos == 1)
-        --endPos;
-
-    return endPos;
 }
 
 void checkPROGRAM(fstream& inFile)
@@ -325,8 +349,6 @@ void checkPROGRAM(fstream& inFile)
         erorExit();
     }
 
-    // to do: generate asm code
-
     inLine = skipEmptyLines(inFile);
     i = skipWordBreaks(inLine, 0);
 
@@ -341,7 +363,7 @@ void checkPROGRAM(fstream& inFile)
         cout << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
         erorExit();
     }
-    ++total_unclosed_blocks;
+    ++unclosed_clocks_count;
 
     generateCode.setProgramName(programName);
 }
@@ -355,26 +377,13 @@ string checkVarDec(fstream& inFile)
         cout << END_EXPECTED(line_number) << endl;
     }
 
-    unsigned i = skipWordBreaks(inLine, 0);
-
-    if (inLine.substr(i, 3) == gEND)
-    {
-        if (skipWordBreaks(inLine, i + 3) != inLine.length() || skipEmptyLines(inFile) != "")
-        {
-            cout << NO_TOKENS_EXPECTED(line_number, gEND) << endl;
-            erorExit();
-        }
-
-        exit(1);
-    }
-
-    i = 0;
+    unsigned i = 0;
     while (1)
     {
         i = skipWordBreaks(inLine, 0);
         if (inLine.substr(i, 3) != gVAR)
         {
-            generateCode.starCode();
+            generateCode.startCode();
             return inLine;
         }
         if (i + 3 >= skipWordBreaks(inLine, i + 3))
@@ -401,7 +410,7 @@ string checkVarDec(fstream& inFile)
                 cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
                 erorExit();
             }
-            ident_table->push_back(identifier{ ident, 0 });
+            ident_list->push_back(identifier{ ident, 0 });
             generateCode.declareVar(ident_string);
             inLine = skipEmptyLines(inFile);
             continue;
@@ -431,7 +440,7 @@ string checkVarDec(fstream& inFile)
                 erorExit();
             }
 
-            ident_table->push_back(identifier{ ident, constantVal });
+            ident_list->push_back(identifier{ ident, constantVal });
 
             generateCode.declareVar(ident_string, constantVal);
             inLine = skipEmptyLines(inFile);
@@ -475,8 +484,6 @@ void checkProgramBody(string& inLine, fstream& inFile)
         }
 
         generateCode.assignmentCode(ident_string);
-
-        // to do:generate assigning asm code
     }
     else if (inLine.substr(i, 4) == gSCAN)
     {
@@ -496,7 +503,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
 
         string ident_string = inLine.substr(i, 2);
 
-        short ident = identExist(ident_string);
+        identExist(ident_string);
 
         i = skipWordBreaks(inLine, i + 2);
 
@@ -526,7 +533,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
 
         string ident_string = inLine.substr(i, 2);
 
-        short ident = identExist(ident_string);
+        identExist(ident_string);
 
         i = skipWordBreaks(inLine, i + 2);
 
@@ -590,7 +597,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
             erorExit();
         }
 
-        ++total_unclosed_blocks;
+        ++unclosed_clocks_count;
 
         generateCode.whileCmp();
     }
@@ -598,7 +605,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
     {
         i = skipWordBreaks(inLine, i + 3);
 
-        --total_unclosed_blocks;
+        --unclosed_clocks_count;
 
         if (i != inLine.length())
         {
@@ -606,12 +613,12 @@ void checkProgramBody(string& inLine, fstream& inFile)
             erorExit();
         }
 
-        if (total_unclosed_blocks < 0)
+        if (unclosed_clocks_count < 0)
         {
             cout << OPEN_BLOCK_EXPECTED(line_number) << endl;
             erorExit();
         }
-        else if (total_unclosed_blocks == 0)
+        else if (unclosed_clocks_count == 0)
         {
             inLine = skipEmptyLines(inFile);
             if (inLine != "")
@@ -627,7 +634,6 @@ void checkProgramBody(string& inLine, fstream& inFile)
     }
     else
     {
-        // error bad token
         cout << UNEXPECTED_TOKEN(line_number) << endl;
         erorExit();
     }
@@ -645,7 +651,7 @@ unsigned solveExpression(string& inLine, unsigned startPos)
 
         curOperator = getNextOperator(inLine, startPos);
     } while (curOperator.name != gUNKNOWN_OPERATOR.name);
-    if (total_unclosed_brackets != 0)
+    if (unclosed_brackets_count != 0)
     {
         cout << CLOSE_BRACKET_EXPECTED(line_number) << endl;
         erorExit();
@@ -658,8 +664,8 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
     startPos = skipWordBreaks(inLine, startPos);
     if (inLine.substr(startPos, 1) == gOPEN_BRACKET.name)
     {
-        short t_u_b = total_unclosed_brackets;
-        ++total_unclosed_brackets;
+        short t_u_b = unclosed_brackets_count;
+        ++unclosed_brackets_count;
         gOperator nextOperator = gUNKNOWN_OPERATOR;
 
         generateCode.pushCx();
@@ -678,9 +684,9 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
                 generateCode.popCx();
                 return startPos;
             }
-        } while (t_u_b < total_unclosed_brackets && startPos < inLine.length() - 1);
+        } while (t_u_b < unclosed_brackets_count && startPos < inLine.length() - 1);
 
-        if (t_u_b > total_unclosed_brackets)
+        if (t_u_b > unclosed_brackets_count)
         {
             return startPos;
         }
@@ -715,14 +721,14 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
     else if (startPos == checkIdent(inLine, startPos))
     {
         string ident_string = inLine.substr(startPos, 2);
-        short ident = identExist(ident_string);
+        identExist(ident_string);
 
         startPos = skipWordBreaks(inLine, startPos + 2);
 
         while (inLine.substr(startPos, 1) == gCLOSE_BRACKET.name)
         {
-            --total_unclosed_brackets;
-            if (total_unclosed_brackets < 0)
+            --unclosed_brackets_count;
+            if (unclosed_brackets_count < 0)
             {
                 cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
                 erorExit();
@@ -756,7 +762,6 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
         generateCode.regOperator(nextOperator.name, "_" + ident_string);
 
         return startPos;
-        // to do: generate asm code for nextOperator
     }
     else if (startPos != getConst(inLine, startPos))
     {
@@ -774,8 +779,8 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         while (inLine.substr(startPos, 1) == gCLOSE_BRACKET.name)
         {
-            --total_unclosed_brackets;
-            if (total_unclosed_brackets < 0)
+            --unclosed_brackets_count;
+            if (unclosed_brackets_count < 0)
             {
                 cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
                 erorExit();
@@ -806,33 +811,12 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
         startPos = solveExpressionPart(inLine, startPos + nextOperator.name.length(), prevOperator);
         generateCode.regOperator(nextOperator.name, constStr);
         return startPos;
-        // to do: generate asm code for nextOperator
     }
     else
     {
         cout << UNEXPECTED_TOKEN(line_number) << endl;
         erorExit();
     }
-    // const
-    // ident
-    //!!
-}
-
-bool checkSemicolon(string& inLine, unsigned startPos)
-{
-    if (startPos < inLine.length() && inLine[startPos] == gSEMICOLON)
-    {
-        for (unsigned i = startPos + 1; i < inLine.length(); ++i)
-        {
-            if (inLine[i] != ' ' && inLine[i] != '\t')
-            {
-                cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-                erorExit();
-            }
-        }
-        return true;
-    }
-    return false;
 }
 
 gOperator getNextOperator(string& inLine, unsigned pos)
@@ -889,10 +873,4 @@ gOperator getNextOperator(string& inLine, unsigned pos)
     {
         return gUNKNOWN_OPERATOR;
     }
-}
-
-void erorExit()
-{
-    generateCode.clearFile();
-    exit(0);
 }

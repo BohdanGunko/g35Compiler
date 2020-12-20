@@ -29,8 +29,6 @@ void codeGenerator::createFile(string& filePath)
                          "include \\masm32\\include\\msvcrt.inc\n"
                          "includelib \\masm32\\lib\\msvcrt.lib\n"
                          "\n.data\n"
-                         "    tmpLeftOperand dw 0\n"
-                         "	tmpRightOperand dw 0\n"
                          "	gPrintFormat db \"%s = %hd\",13,10,0\n"
                          "	gPrintBeforeScan db \"Enter %s = \",0\n"
                          "	gScanFormat db \"%hd\",0\n"
@@ -54,7 +52,7 @@ void codeGenerator::declareVar(string& varName, short varValue)
     asmFile << "\t_" << varName << "_gName db \"" << varName << "\",0\n";
 }
 
-void codeGenerator::starCode()
+void codeGenerator::startCode()
 {
     asmFile << "\n.code\n_" + programName + ":\n";
 }

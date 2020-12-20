@@ -24,7 +24,7 @@ public:
     void setProgramName(string& programName);
     void declareVar(string& varName);
     void declareVar(string& varName, short varValue);
-    void starCode();
+    void startCode();
     void endCode();
     void scanCode(string& varName);
     void printCode(string& varName);
