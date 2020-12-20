@@ -12,9 +12,9 @@ codeGenerator::~codeGenerator()
 void codeGenerator::createFile(string& filePath)
 
 {
-    this->filePath = filePath.substr(0, filePath.length() - 4) + ".asm";
+    this->filePath = filePath.substr(0, filePath.length() - 4);
 
-    asmFile.open(this->filePath, std::fstream::out);
+    asmFile.open(this->filePath + ".asm", std::fstream::out);
 
     if (!asmFile.is_open())
     {
@@ -61,190 +61,187 @@ void codeGenerator::starCode()
 
 void codeGenerator::endCode()
 {
-    asmFile << "invoke crt_printf, addr pressAnyKeyMsg\n"
-                         "invoke  crt__getch\n"
-                         "ret\n"
-                         "end _"
-                    << programName;
+    asmFile << "invoke crt_printf, addr pressAnyKeyMsg\n";
+    asmFile << "invoke  crt__getch\n";
+    asmFile << "ret\n";
+    asmFile << "end _" << programName;
     asmFile.close();
 }
 
 void codeGenerator::scanCode(string& varName)
 {
-    asmFile << "invoke crt_printf, addr gPrintBeforeScan, addr _" << varName << "_gName, _" << varName << "\n";
-    asmFile << "invoke crt_scanf, addr gScanFormat, addr _" << varName << "\n";
+    asmFile << tabulationStr << "invoke crt_printf, addr gPrintBeforeScan, addr _" << varName << "_gName, _" << varName << "\n";
+    asmFile << tabulationStr << "invoke crt_scanf, addr gScanFormat, addr _" << varName << "\n";
 }
 
 void codeGenerator::printCode(string& varName)
 {
-    asmFile << "invoke crt_printf, addr gPrintFormat, addr _" << varName << "_gName, _" << varName << "\n";
+    asmFile << tabulationStr << "invoke crt_printf, addr gPrintFormat, addr _" << varName << "_gName, _" << varName << "\n";
 }
 
 void codeGenerator::assignmentCode(string& varName)
 {
-    asmFile << "mov _" + varName << ", cx\n";
+    asmFile << tabulationStr << "mov _" + varName << ", cx\n";
 }
 
 void codeGenerator::regMov(string rightOperand)
 {
-    asmFile << "mov bx, " << rightOperand << "\n";
+    asmFile << tabulationStr << "mov bx, " << rightOperand << "\n";
 }
 
 void codeGenerator::movCxBx()
 {
-    asmFile << "mov cx, bx\n";
+    asmFile << tabulationStr << "mov cx, bx\n";
 }
 
 void codeGenerator::movBxCx()
 {
-    asmFile << "mov bx, cx\n";
+    asmFile << tabulationStr << "mov bx, cx\n";
 }
 
 void codeGenerator::regOperator(string& operatorName, string leftOperand)
 {
     if (operatorName == "+")
     {
-        asmFile << "add bx, " << leftOperand << "\n";
+        asmFile << tabulationStr << "add bx, " << leftOperand << "\n";
     }
     else if (operatorName == "-")
     {
-        asmFile << "mov ax, " << leftOperand
-                        << "\n"
-                             "sub ax, bx\n"
-                             "mov bx, ax\n";
+        asmFile << tabulationStr << "mov ax, " << leftOperand << "\n";
+        asmFile << tabulationStr << "sub ax, bx\n";
+        asmFile << tabulationStr << "mov bx, ax\n";
     }
     else if (operatorName == "*")
     {
-        asmFile << "mov ax, " << leftOperand
-                        << "\n"
-                             "imul bx\n"
-                             "mov bx, ax\n";
+        asmFile << tabulationStr << "mov ax, " << leftOperand << "\n";
+        asmFile << tabulationStr << "imul bx\n";
+        asmFile << tabulationStr << "mov bx, ax\n";
     }
     else if (operatorName == "==")
     {
-        asmFile << "cmp bx, " << leftOperand
-                        << "\n"
-                             "sete bl\n"
-                             "movzx bx, bl\n";
+        asmFile << tabulationStr << "cmp bx, " << leftOperand << "\n";
+        asmFile << tabulationStr << "sete bl\n";
+        asmFile << tabulationStr << "movzx bx, bl\n";
     }
     else if (operatorName == "<>")
     {
-        asmFile << "cmp bx, " << leftOperand
-                        << "\n"
-                             "setne bl\n"
-                             "movzx bx, bl\n";
+        asmFile << tabulationStr << "cmp bx, " << leftOperand << "\n";
+        asmFile << tabulationStr << "setne bl\n";
+        asmFile << tabulationStr << "movzx bx, bl\n";
     }
     else if (operatorName == ">>")
     {
-        asmFile << "cmp " << leftOperand << ", bx\n"
-                        << "setg bl\n"
-                             "movzx bx, bl\n";
+        asmFile << tabulationStr << "cmp " << leftOperand << ", bx\n";
+        asmFile << tabulationStr << "setg bl\n";
+        asmFile << tabulationStr << "movzx bx, bl\n";
     }
     else if (operatorName == "<<")
     {
-        asmFile << "cmp " << leftOperand << ", bx\n"
-                        << "setl bl\n"
-                             "movzx bx, bl\n";
+        asmFile << tabulationStr << "cmp " << leftOperand << ", bx\n";
+        asmFile << tabulationStr << "setl bl\n";
+        asmFile << tabulationStr << "movzx bx, bl\n";
     }
     else if (operatorName == "&&")
     {
-        asmFile << "cmp " << leftOperand
-                        << ", 0\n"
-
-                             "je _LAND_" +
-                                     to_string(andOperatorsCounter) +
-                                     "\n"
-                                     "cmp bx, 0\n"
-                                     "je _LAND_" +
-                                     to_string(andOperatorsCounter) +
-                                     "\n"
-                                     "mov bx, 1\n"
-                                     "jmp _LAND_RES_" +
-                                     to_string(andOperatorsCounter) +
-                                     "\n"
-                                     "_LAND_" +
-                                     to_string(andOperatorsCounter) +
-                                     ":\n"
-                                     "mov bx, 0\n"
-                                     "_LAND_RES_" +
-                                     to_string(andOperatorsCounter) + ":\n";
+        asmFile << tabulationStr << "cmp " << leftOperand << ", 0\n";
+        asmFile << tabulationStr << "je _LAND_" + to_string(andOperatorsCounter) + "\n";
+        asmFile << tabulationStr << "cmp bx, 0\n";
+        asmFile << tabulationStr << "je _LAND_" + to_string(andOperatorsCounter) + "\n";
+        asmFile << tabulationStr << "mov bx, 1\n";
+        asmFile << tabulationStr << "jmp _LAND_RES_" + to_string(andOperatorsCounter) + "\n";
+        asmFile << tabulationStr << "_LAND_" + to_string(andOperatorsCounter) + ":\n";
+        asmFile << tabulationStr << "mov bx, 0\n";
+        asmFile << tabulationStr << "_LAND_RES_" + to_string(andOperatorsCounter) + ":\n";
 
         ++andOperatorsCounter;
     }
     else if (operatorName == "||")
     {
-        asmFile << "or bx, " << leftOperand
-                        << "\n"
-                             "cmp bx, 0\n"
-                             "setne bl\n"
-                             "movzx bx, bl\n";
+        asmFile << tabulationStr << "or bx, " << leftOperand << "\n";
+        asmFile << tabulationStr << "cmp bx, 0\n";
+        asmFile << tabulationStr << "setne bl\n";
+        asmFile << tabulationStr << "movzx bx, bl\n";
     }
     else if (operatorName == "DIV")
     {
-        asmFile << "mov ax, " << leftOperand << "\n"
-                        << "cwd\n"
-                             "idiv bx\n"
-                             "mov bx, ax\n";
+        asmFile << tabulationStr << "mov ax, " << leftOperand << "\n";
+        asmFile << tabulationStr << "cwd\n";
+        asmFile << tabulationStr << "idiv bx\n";
+        asmFile << tabulationStr << "mov bx, ax\n";
     }
     else if (operatorName == "MOD")
     {
-        asmFile << "mov ax, " << leftOperand << "\n"
-                        << "cwd\n"
-                             "div bx\n"
-                             "mov bx, dx\n";
+        asmFile << tabulationStr << "mov ax, " << leftOperand << "\n";
+        asmFile << tabulationStr << "cwd\n";
+        asmFile << tabulationStr << "div bx\n";
+        asmFile << tabulationStr << "mov bx, dx\n";
     }
     else if (operatorName == "!!")
     {
-        asmFile << "cmp bx, 0\n"
-                             "sete bl\n"
-                             "movzx bx, bl\n";
+        asmFile << tabulationStr << "cmp bx, 0\n";
+        asmFile << tabulationStr << "sete bl\n";
+        asmFile << tabulationStr << "movzx bx, bl\n";
     }
     else if (operatorName == "")
     {
     }
     else
     {
-        cout << "BAD OPERATOR" << endl;
+        cout << "Unknown operator passed to code generator" << endl;
         exit(0);
     }
 }
 
 void codeGenerator::pushCx()
 {
-    asmFile << "push cx\n";
+    asmFile << tabulationStr << "push cx\n";
 }
 
 void codeGenerator::popCx()
 {
-    asmFile << "mov cx, [esp]\n"
-                         "add esp, 2\n";
+    asmFile << tabulationStr << "mov cx, [esp]\n";
+    asmFile << tabulationStr << "add esp, 2\n";
 }
 void codeGenerator::whileStart()
 {
     ++blocks_count;
-    asmFile << "_while_begin_" + to_string(blocks_count) + ":\n";
+    asmFile << tabulationStr << "_while_begin_" + to_string(blocks_count) + ":\n";
+    tabulationStr += "\t";
 }
 void codeGenerator::whileCmp()
 {
-    asmFile << "cmp cx, 0\n"
-                         "je _while_end_" +
-                                 to_string(blocks_count) + "\n";
+    asmFile << tabulationStr << "cmp cx, 0\n";
+    asmFile << tabulationStr << "je _while_end_" + to_string(blocks_count) + "\n";
 }
 void codeGenerator::whileEnd()
 {
-    asmFile << "jmp _while_begin_" + to_string(blocks_count) +
-                                 "\n"
-                                 "_while_end_" +
-                                 to_string(blocks_count) + ":\n";
+    tabulationStr.resize(tabulationStr.length() - 1);
+    asmFile << tabulationStr << "jmp _while_begin_" + to_string(blocks_count) + "\n";
+    asmFile << tabulationStr << "_while_end_" + to_string(blocks_count) + ":\n";
     --blocks_count;
 }
 
 void codeGenerator::assembleFile()
 {
-    string ml = "      \"P:\\ml /Fo \"P:\\test.obj\" /c /Zd /coff \""+filePath+ " \"";
-    string link = "P:\\link /SUBSYSTEM:CONSOLE  /OUT:\"P:\\test.exe\" \"P:\\test.obj\"";
-    //string link = "      \"P:\\link /Fo \"P:\\test.exe\" /c /Zd /coff \"P:\\test.obj\"";
+    string ml = "ml /Fo \"" + filePath + ".obj\"" + " /c /Zd /coff \"" + filePath + ".asm\"";
+    string link = "link /SUBSYSTEM:CONSOLE  /OUT:\"" + filePath + ".exe\" \"" + filePath + ".obj\"";
 
+    cout << "Assembling.." << endl;
     system(ml.c_str());
+
+    cout << endl << "Linking..." << endl;
     system(link.c_str());
+}
+
+void codeGenerator::writeComment(string commentLine)
+{
+    asmFile << "\n" << tabulationStr << ";" << commentLine << "\n";
+}
+
+void codeGenerator::clearFile()
+{
+    asmFile.close();
+    remove((filePath+".asm").c_str());
+    remove((filePath+".obj").c_str());
+    remove((filePath+".exe").c_str());
 }

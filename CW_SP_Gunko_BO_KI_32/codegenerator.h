@@ -14,6 +14,7 @@ protected:
     string programName;
     unsigned blocks_count = 0;
     unsigned andOperatorsCounter = 1;
+    string tabulationStr = "";
 
 public:
     codeGenerator();
@@ -38,6 +39,8 @@ public:
     void whileCmp();
     void whileEnd();
     void assembleFile();
+    void writeComment(string commentLine);
+    void clearFile();
 };
 
 #endif	// CODEGENERATOR_H

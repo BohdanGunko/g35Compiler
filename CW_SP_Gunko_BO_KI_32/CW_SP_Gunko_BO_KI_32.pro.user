@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 4.13.3, 2020-12-18T17:31:08. -->
+<!-- Written by QtCreator 4.13.3, 2020-12-20T17:15:28. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -96,8 +96,8 @@
    <valuemap type="QVariantMap" key="ProjectExplorer.Target.BuildConfiguration.0">
     <value type="bool">true</value>
     <value type="int" key="EnableQmlDebugging">0</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">S:\LPNU\Semestr 5\System programming\Course work\cw_project\build-CW_SP_Gunko_BO_KI_32-Desktop_Qt_5_15_2_MinGW_32_bit-Debug</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory.shadowDir">S:/LPNU/Semestr 5/System programming/Course work/cw_project/build-CW_SP_Gunko_BO_KI_32-Desktop_Qt_5_15_2_MinGW_32_bit-Debug</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">S:\LPNU\Semestr 5\System programming\Course work\cw_project\Debug</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory.shadowDir">S:/LPNU/Semestr 5/System programming/Course work/cw_project/Debug</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="bool" key="ProjectExplorer.BuildStep.Enabled">true</value>
@@ -338,7 +338,7 @@
     <value type="bool" key="RunConfiguration.UseQmlDebuggerAuto">true</value>
     <value type="bool" key="RunConfiguration.UseTerminal">true</value>
     <value type="QString" key="RunConfiguration.WorkingDirectory"></value>
-    <value type="QString" key="RunConfiguration.WorkingDirectory.default">S:/LPNU/Semestr 5/System programming/Course work/cw_project/build-CW_SP_Gunko_BO_KI_32-Desktop_Qt_5_15_2_MinGW_32_bit-Debug</value>
+    <value type="QString" key="RunConfiguration.WorkingDirectory.default">S:/LPNU/Semestr 5/System programming/Course work/cw_project/Debug</value>
    </valuemap>
    <value type="int" key="ProjectExplorer.Target.RunConfigurationCount">1</value>
   </valuemap>

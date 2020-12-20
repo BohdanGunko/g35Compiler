@@ -92,6 +92,7 @@ short identExist(string& ident_string);
 unsigned solveExpression(string& inLine, unsigned startPos);
 unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOperator);
 bool checkSemicolon(string& inLine, unsigned startPos);
+void erorExit();
 
 void translateToAsm(fstream& inFile);
 void checkPROGRAM(fstream& inFile);
@@ -104,10 +105,7 @@ int main()
     string filePath;
 enter_file_name:
     cout << "Please enter(or paste) path to file: " << endl;
-    cin >> filePath;
-
-    // to remove
-    filePath = "S:\\LPNU\\Semestr 5\\System programming\\Course work\\cw_project\\testApp.g35";
+    getline(cin, filePath);
 
     if (filePath.length() < 4 || filePath.substr(filePath.length() - 4, filePath.length() - 1) != ".g35")
     {
@@ -146,11 +144,12 @@ void translateToAsm(fstream& inFile)
     if (total_unclosed_blocks > 0)
     {
         cout << CLOSE_BLOCK_EXPECTED(line_number) << endl;
-        exit(0);
+        erorExit();
     }
 
     generateCode.endCode();
 
+    cout << "Assembly code generated." << endl << endl;
     generateCode.assembleFile();
 }
 
@@ -202,7 +201,7 @@ string skipEmptyLines(fstream& inFile)
                     } while (getline(inFile, inLine));
 
                     cout << END_OF_COMMENT_EXPECTED << endl;
-                    exit(0);
+                    erorExit();
                 }
             }
             return inLine;
@@ -232,7 +231,7 @@ short checkForDuplicats(string& ident_string)
         if (i.name == ident)
         {
             cout << IDENT_ALREADY_EXIST(line_number, ident_string) << endl;
-            exit(0);
+            erorExit();
         }
     }
     return ident;
@@ -249,7 +248,7 @@ short identExist(string& ident_string)
         }
     }
     cout << UNDECLARED_IDENT(line_number, ident_string) << endl;
-    exit(0);
+    erorExit();
 }
 
 unsigned getConst(string& inLine, unsigned pos)
@@ -268,12 +267,12 @@ unsigned getConst(string& inLine, unsigned pos)
             if (stoi(num) > 32767 || stoi(num) < -32768)
             {
                 cout << CONSTANT_OUT_OF_RANGE(line_number) << endl;
-                exit(0);
+                erorExit();
             }
             else if (num.length() > 5)
             {
                 cout << CONSTANT_TOO_LONG(line_number) << endl;
-                exit(0);
+                erorExit();
             }
         }
         else
@@ -295,13 +294,13 @@ void checkPROGRAM(fstream& inFile)
     if (inLine.substr(i, 7) != gPROGRAM)
     {
         cout << NO_ENTRY_POINT(line_number) << endl;
-        exit(0);
+        erorExit();
     }
 
     if (i + 7 >= skipWordBreaks(inLine, i + 7))
     {
         cout << WORD_BREAK_EXPECTED(line_number, gPROGRAM) << endl;
-        exit(0);
+        erorExit();
     }
 
     i = skipWordBreaks(inLine, i + 7);
@@ -309,7 +308,7 @@ void checkPROGRAM(fstream& inFile)
     if (i != checkIdent(inLine, i))
     {
         cout << IDENT_EXPECTED(line_number, gPROGRAM) << endl;
-        exit(0);
+        erorExit();
     }
     string programName = inLine.substr(i, 2);
 
@@ -317,13 +316,13 @@ void checkPROGRAM(fstream& inFile)
     if (i >= inLine.length() || inLine[i] != ';')
     {
         cout << SEMICOLON_EXPECTED(line_number, programName) << endl;
-        exit(0);
+        erorExit();
     }
 
     if (i != inLine.length() - 1 && skipWordBreaks(inLine, i + 1) != inLine.length())
     {
         cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-        exit(0);
+        erorExit();
     }
 
     // to do: generate asm code
@@ -334,13 +333,13 @@ void checkPROGRAM(fstream& inFile)
     if (inLine.substr(i, 5) != gBEGIN)
     {
         cout << BEGIN_EXPECTED(line_number) << endl;
-        exit(0);
+        erorExit();
     }
 
     if (i != inLine.length() - 1 && skipWordBreaks(inLine, i + 5) != inLine.length())
     {
         cout << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
-        exit(0);
+        erorExit();
     }
     ++total_unclosed_blocks;
 
@@ -363,9 +362,9 @@ string checkVarDec(fstream& inFile)
         if (skipWordBreaks(inLine, i + 3) != inLine.length() || skipEmptyLines(inFile) != "")
         {
             cout << NO_TOKENS_EXPECTED(line_number, gEND) << endl;
-            exit(0);
+            erorExit();
         }
-        cout << "Compiled" << endl;
+
         exit(1);
     }
 
@@ -381,14 +380,14 @@ string checkVarDec(fstream& inFile)
         if (i + 3 >= skipWordBreaks(inLine, i + 3))
         {
             cout << WORD_BREAK_EXPECTED(line_number, gVAR) << endl;
-            exit(0);
+            erorExit();
         }
         i = skipWordBreaks(inLine, i + 3);
 
         if (i != checkIdent(inLine, i))
         {
             cout << IDENT_EXPECTED(line_number, gVAR) << endl;
-            exit(0);
+            erorExit();
         }
         string ident_string = inLine.substr(i, 2);
         short ident = checkForDuplicats(ident_string);
@@ -400,7 +399,7 @@ string checkVarDec(fstream& inFile)
             if (skipWordBreaks(inLine, i + 1) != inLine.length())
             {
                 cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-                exit(0);
+                erorExit();
             }
             ident_table->push_back(identifier{ ident, 0 });
             generateCode.declareVar(ident_string);
@@ -414,7 +413,7 @@ string checkVarDec(fstream& inFile)
             if (constEndPos == i)
             {
                 cout << CONSTANT_EXPECTED(line_number) << endl;
-                exit(0);
+                erorExit();
             }
             string numStr = inLine.substr(i, constEndPos - i);
             short constantVal = stoi(numStr);
@@ -423,13 +422,13 @@ string checkVarDec(fstream& inFile)
             if (inLine[i] != ';')
             {
                 cout << SEMICOLON_EXPECTED(line_number, numStr) << endl;
-                exit(0);
+                erorExit();
             }
             i = skipWordBreaks(inLine, i + 1);
             if (i < inLine.length())
             {
                 cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-                exit(0);
+                erorExit();
             }
 
             ident_table->push_back(identifier{ ident, constantVal });
@@ -441,7 +440,7 @@ string checkVarDec(fstream& inFile)
         else
         {
             cout << UNEXPECTED_TOKEN(line_number) << endl;
-            exit(0);
+            erorExit();
         }
     }
 }
@@ -452,6 +451,8 @@ void checkProgramBody(string& inLine, fstream& inFile)
 
     i = skipWordBreaks(inLine, 0);
 
+    generateCode.writeComment(inLine.substr(i));
+
     if (i == checkIdent(inLine, i))
     {
         string ident_string = inLine.substr(i, 2);
@@ -460,7 +461,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (inLine.substr(i, 2) != gASSIGNMENT)
         {
             cout << TOKEN_EXPECTED(line_number, ident_string, gASSIGNMENT) << endl;
-            exit(0);
+            erorExit();
         }
 
         i = skipWordBreaks(inLine, i + 2);
@@ -470,10 +471,11 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (!checkSemicolon(inLine, i))
         {
             cout << SEMICOLON_EXPECTED(line_number, "Position " + to_string(i)) << endl;
-            exit(0);
+            erorExit();
         }
 
         generateCode.assignmentCode(ident_string);
+
         // to do:generate assigning asm code
     }
     else if (inLine.substr(i, 4) == gSCAN)
@@ -481,7 +483,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (i + 4 == skipWordBreaks(inLine, i + 4))
         {
             cout << WORD_BREAK_EXPECTED(line_number, gSCAN) << endl;
-            exit(0);
+            erorExit();
         }
 
         i = skipWordBreaks(inLine, i + 4);
@@ -489,7 +491,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (i != checkIdent(inLine, i))
         {
             cout << IDENT_EXPECTED(line_number, gSCAN) << endl;
-            exit(0);
+            erorExit();
         }
 
         string ident_string = inLine.substr(i, 2);
@@ -501,7 +503,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (!checkSemicolon(inLine, i))
         {
             cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
-            exit(0);
+            erorExit();
         }
 
         generateCode.scanCode(ident_string);
@@ -511,7 +513,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (i + 5 == skipWordBreaks(inLine, i + 5))
         {
             cout << WORD_BREAK_EXPECTED(line_number, gPRINT) << endl;
-            exit(0);
+            erorExit();
         }
 
         i = skipWordBreaks(inLine, i + 5);
@@ -519,7 +521,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (i != checkIdent(inLine, i))
         {
             cout << IDENT_EXPECTED(line_number, gPRINT) << endl;
-            exit(0);
+            erorExit();
         }
 
         string ident_string = inLine.substr(i, 2);
@@ -531,7 +533,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (!checkSemicolon(inLine, i))
         {
             cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
-            exit(0);
+            erorExit();
         }
 
         generateCode.printCode(ident_string);
@@ -541,26 +543,25 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (i + 5 == skipWordBreaks(inLine, i + 5))
         {
             cout << WORD_BREAK_EXPECTED(line_number, gWHILE) << endl;
-            exit(0);
+            erorExit();
         }
 
         generateCode.whileStart();
 
         i = skipWordBreaks(inLine, i + 5);
 
-
         i = solveExpression(inLine, i);
 
         if (inLine[i - 1] != ' ' && inLine[i - 1] != '\t')
         {
             cout << WORD_BREAK_EXPECTED(line_number, "Position " + to_string(i)) << endl;
-            exit(0);
+            erorExit();
         }
 
         if (inLine.substr(i, 2) != gDO)
         {
             cout << TOKEN_EXPECTED(line_number, "Condition", gDO) << endl;
-            exit(0);
+            erorExit();
         }
 
         i = skipWordBreaks(inLine, i + 2);
@@ -568,7 +569,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (i != inLine.length())
         {
             cout << NEW_LINE_EXPECTED(line_number, gDO) << endl;
-            exit(0);
+            erorExit();
         }
 
         inLine = skipEmptyLines(inFile);
@@ -578,16 +579,15 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (inLine.substr(i, 5) != gBEGIN)
         {
             cout << TOKEN_EXPECTED(line_number, gDO, gBEGIN) << endl;
-            exit(0);
+            erorExit();
         }
-
 
         i = skipWordBreaks(inLine, i + 5);
 
         if (i != inLine.length())
         {
             cout << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
-            exit(0);
+            erorExit();
         }
 
         ++total_unclosed_blocks;
@@ -603,13 +603,13 @@ void checkProgramBody(string& inLine, fstream& inFile)
         if (i != inLine.length())
         {
             cout << NEW_LINE_EXPECTED(line_number, gEND) << endl;
-            exit(0);
+            erorExit();
         }
 
         if (total_unclosed_blocks < 0)
         {
             cout << OPEN_BLOCK_EXPECTED(line_number) << endl;
-            exit(0);
+            erorExit();
         }
         else if (total_unclosed_blocks == 0)
         {
@@ -618,7 +618,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
             {
                 short program_end_line = line_number;
                 cout << NO_TOKENS_EXPECTED(line_number, "end of the program: \"END\" in line " + to_string(program_end_line)) << endl;
-                exit(0);
+                erorExit();
             }
             return;
         }
@@ -629,7 +629,7 @@ void checkProgramBody(string& inLine, fstream& inFile)
     {
         // error bad token
         cout << UNEXPECTED_TOKEN(line_number) << endl;
-        exit(0);
+        erorExit();
     }
 }
 
@@ -644,12 +644,11 @@ unsigned solveExpression(string& inLine, unsigned startPos)
         generateCode.movCxBx();
 
         curOperator = getNextOperator(inLine, startPos);
-        cout << curOperator.name << endl;
     } while (curOperator.name != gUNKNOWN_OPERATOR.name);
     if (total_unclosed_brackets != 0)
     {
         cout << CLOSE_BRACKET_EXPECTED(line_number) << endl;
-        exit(0);
+        erorExit();
     }
     return startPos;
 }
@@ -659,7 +658,6 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
     startPos = skipWordBreaks(inLine, startPos);
     if (inLine.substr(startPos, 1) == gOPEN_BRACKET.name)
     {
-        cout << "(" << endl;
         short t_u_b = total_unclosed_brackets;
         ++total_unclosed_brackets;
         gOperator nextOperator = gUNKNOWN_OPERATOR;
@@ -706,17 +704,10 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
         generateCode.regOperator(nextOperator.name, "cx");
         generateCode.popCx();
 
-        cout << prevOperator.name << endl;
-        cout << "ident_string"
-                        ""
-                 << endl;
-
         return startPos;
     }
     else if (inLine.substr(startPos, 2) == gNOT.name)
     {
-        cout << "!!" << endl;
-
         startPos = solveExpressionPart(inLine, startPos + 2, gNOT);
         generateCode.regOperator(gNOT.name, "");
         return startPos;
@@ -734,13 +725,11 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
             if (total_unclosed_brackets < 0)
             {
                 cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
-                exit(0);
+                erorExit();
             }
 
             startPos = skipWordBreaks(inLine, startPos + 1);
 
-            cout << ident_string << endl;
-            cout << ")" << endl;
             if (inLine.substr(startPos, 1) != gCLOSE_BRACKET.name)
             {
                 generateCode.regMov("_" + ident_string);
@@ -752,7 +741,6 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         if (nextOperator.name == gUNKNOWN_OPERATOR.name)
         {
-            cout << ident_string << endl;
             generateCode.regMov("_" + ident_string);
             return startPos;
         }
@@ -767,8 +755,6 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         generateCode.regOperator(nextOperator.name, "_" + ident_string);
 
-        cout << ident_string << endl;
-
         return startPos;
         // to do: generate asm code for nextOperator
     }
@@ -781,7 +767,7 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
         if (constNum < 0 && prevOperator.name != gUNKNOWN_OPERATOR.name)
         {
             cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
-            exit(0);
+            erorExit();
         }
 
         startPos = skipWordBreaks(inLine, constEnd);
@@ -792,13 +778,11 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
             if (total_unclosed_brackets < 0)
             {
                 cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
-                exit(0);
+                erorExit();
             }
 
             startPos = skipWordBreaks(inLine, startPos + 1);
 
-            cout << constStr << endl;
-            cout << ")" << endl;
             if (inLine.substr(startPos, 1) != gCLOSE_BRACKET.name)
             {
                 generateCode.regMov(constStr);
@@ -810,7 +794,6 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
 
         if (nextOperator.name == gUNKNOWN_OPERATOR.name)
         {
-            cout << constStr << endl;
             generateCode.regMov(constStr);
             return startPos;
         }
@@ -828,7 +811,7 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
     else
     {
         cout << UNEXPECTED_TOKEN(line_number) << endl;
-        exit(0);
+        erorExit();
     }
     // const
     // ident
@@ -844,7 +827,7 @@ bool checkSemicolon(string& inLine, unsigned startPos)
             if (inLine[i] != ' ' && inLine[i] != '\t')
             {
                 cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-                exit(0);
+                erorExit();
             }
         }
         return true;
@@ -906,4 +889,10 @@ gOperator getNextOperator(string& inLine, unsigned pos)
     {
         return gUNKNOWN_OPERATOR;
     }
+}
+
+void erorExit()
+{
+    generateCode.clearFile();
+    exit(0);
 }
