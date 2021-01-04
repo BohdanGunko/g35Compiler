@@ -3,6 +3,7 @@
 #include <string>
 #include <regex>
 #include <vector>
+#include <windows.h>
 #include "codegenerator.h"
 using namespace std;
 
@@ -28,6 +29,7 @@ using namespace std;
 #define gCOM_ST "#*"
 #define gCOM_END "*#"
 #define gSEMICOLON ';'
+#define gINT16 "INT16"
 
 struct gOperator
 {
@@ -68,7 +70,8 @@ gOperator gUNKNOWN_OPERATOR = { "", PRIORYTY0 };
 #define UNDECLARED_IDENT(ln, ident) "Error in line " + to_string(ln) + ":Undeclared identificator \"" + ident + "\""
 #define OPEN_BRACKET_EXPECTED(ln, pos) "Error in line " + to_string(ln) + ":Expected open bracket before possition \"" + to_string(pos) + "\""
 #define CLOSE_BRACKET_EXPECTED(ln) "Error in line " + to_string(ln) + ":Not enought closed brackets"
-#define TOKEN_EXPECTED(ln, after_token, expected_token) "Error in line " + to_string(ln) + ":Expected \"" + expected_token + "\" after token \"" + after_token + "\""
+#define TOKEN_EXPECTED(ln, after_token, expected_token) \
+    "Error in line " + to_string(ln) + ":Expected \"" + expected_token + "\" after token \"" + after_token + "\""
 #define OPEN_BLOCK_EXPECTED(ln) "Error in line " + to_string(ln) + ":Expected \"BEGIN\" before \"END\""
 #define CLOSE_BLOCK_EXPECTED(ln) "Error in line " + to_string(ln) + ":Unclosed block, \"END\" expected"
 
@@ -83,6 +86,10 @@ short unclosed_brackets_count = 0;
 short unclosed_clocks_count = 0;
 vector<identifier>* ident_list;
 codeGenerator generateCode;
+fstream outFile;
+fstream lexemFile;
+fstream identFile;
+string filePath;
 
 short checkForDuplicats(string& ident_string);
 unsigned getConst(string& inLine, unsigned pos);
@@ -91,7 +98,7 @@ string skipEmptyLines(fstream& inFile);
 unsigned skipWordBreaks(const string& inLine, unsigned startPos);
 short identExist(string& ident_string);
 bool checkSemicolon(string& inLine, unsigned startPos);
-void erorExit();
+void errorExit();
 
 void translateToAsm(fstream& inFile);
 void checkPROGRAM(fstream& inFile);
@@ -122,13 +129,35 @@ enter_file_name:
         goto enter_file_name;
     }
 
+    outFile.open(filePath.substr(0, filePath.length() - 4) + "_error.txt", fstream::out);
+    lexemFile.open(filePath.substr(0, filePath.length() - 4) + "_lexems_table.txt", fstream::out);
+    identFile.open(filePath.substr(0, filePath.length() - 4) + "_ident_table.txt", fstream::out);
+
+    lexemFile << "Line"
+                        << "\t"
+                        << "Lexem" << endl;
+    lexemFile << "----------------------------------------------" << endl;
+
+    identFile << "Line"
+                        << "\t"
+                        << "Identifier" << endl;
+    identFile << "----------------------------------------------" << endl;
+
     ident_list = new vector<identifier>;
     generateCode.createFile(filePath);
     translateToAsm(inFile);
 
+    outFile.close();
+    lexemFile.close();
+    identFile.close();
     inFile.close();
 
+    remove((filePath.substr(0, filePath.length() - 4) + "_error.txt").c_str());
+
     delete ident_list;
+
+    cout << "DONE successfully" << endl;
+    system("pause");
     return 1;
 }
 
@@ -139,8 +168,8 @@ short checkForDuplicats(string& ident_string)
     {
         if (i.name == ident)
         {
-            cout << IDENT_ALREADY_EXIST(line_number, ident_string) << endl;
-            erorExit();
+            outFile << IDENT_ALREADY_EXIST(line_number, ident_string) << endl;
+            errorExit();
         }
     }
     return ident;
@@ -161,13 +190,13 @@ unsigned getConst(string& inLine, unsigned pos)
         {
             if (stoi(num) > 32767 || stoi(num) < -32768)
             {
-                cout << CONSTANT_OUT_OF_RANGE(line_number) << endl;
-                erorExit();
+                outFile << CONSTANT_OUT_OF_RANGE(line_number) << endl;
+                errorExit();
             }
             else if (num.length() > 5)
             {
-                cout << CONSTANT_TOO_LONG(line_number) << endl;
-                erorExit();
+                outFile << CONSTANT_TOO_LONG(line_number) << endl;
+                errorExit();
             }
         }
         else
@@ -203,8 +232,8 @@ short identExist(string& ident_string)
             return ident;
         }
     }
-    cout << UNDECLARED_IDENT(line_number, ident_string) << endl;
-    erorExit();
+    outFile << UNDECLARED_IDENT(line_number, ident_string) << endl;
+    errorExit();
 }
 
 string skipEmptyLines(fstream& inFile)
@@ -242,8 +271,8 @@ string skipEmptyLines(fstream& inFile)
 
                     } while (getline(inFile, inLine));
 
-                    cout << END_OF_COMMENT_EXPECTED << endl;
-                    erorExit();
+                    outFile << END_OF_COMMENT_EXPECTED << endl;
+                    errorExit();
                 }
             }
             return inLine;
@@ -260,8 +289,8 @@ bool checkSemicolon(string& inLine, unsigned startPos)
         {
             if (inLine[i] != ' ' && inLine[i] != '\t')
             {
-                cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-                erorExit();
+                outFile << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
+                errorExit();
             }
         }
         return true;
@@ -269,9 +298,17 @@ bool checkSemicolon(string& inLine, unsigned startPos)
     return false;
 }
 
-void erorExit()
+void errorExit()
 {
+    cout << "Ended unsuccessfully, see error on file" << endl;
     generateCode.clearFile();
+
+    lexemFile.close();
+    identFile.close();
+
+    remove((filePath.substr(0, filePath.length() - 4) + "_lexems_table.txt").c_str());
+    remove((filePath.substr(0, filePath.length() - 4) + "_ident_table.txt").c_str());
+    outFile.close();
     exit(0);
 }
 
@@ -279,6 +316,8 @@ void translateToAsm(fstream& inFile)
 {
     checkPROGRAM(inFile);
     string inLine = checkVarDec(inFile);
+    identFile.close();
+
     do
     {
         checkProgramBody(inLine, inFile);
@@ -287,8 +326,8 @@ void translateToAsm(fstream& inFile)
 
     if (unclosed_clocks_count > 0)
     {
-        cout << CLOSE_BLOCK_EXPECTED(line_number) << endl;
-        erorExit();
+        outFile << CLOSE_BLOCK_EXPECTED(line_number) << endl;
+        errorExit();
     }
 
     generateCode.endCode();
@@ -317,53 +356,60 @@ void checkPROGRAM(fstream& inFile)
 
     if (inLine.substr(i, 7) != gPROGRAM)
     {
-        cout << NO_ENTRY_POINT(line_number) << endl;
-        erorExit();
+        outFile << NO_ENTRY_POINT(line_number) << endl;
+        errorExit();
     }
 
     if (i + 7 >= skipWordBreaks(inLine, i + 7))
     {
-        cout << WORD_BREAK_EXPECTED(line_number, gPROGRAM) << endl;
-        erorExit();
+        outFile << WORD_BREAK_EXPECTED(line_number, gPROGRAM) << endl;
+        errorExit();
     }
 
     i = skipWordBreaks(inLine, i + 7);
 
     if (i != checkIdent(inLine, i))
     {
-        cout << IDENT_EXPECTED(line_number, gPROGRAM) << endl;
-        erorExit();
+        outFile << IDENT_EXPECTED(line_number, gPROGRAM) << endl;
+        errorExit();
     }
     string programName = inLine.substr(i, 2);
 
     i = skipWordBreaks(inLine, i + 2);
     if (i >= inLine.length() || inLine[i] != ';')
     {
-        cout << SEMICOLON_EXPECTED(line_number, programName) << endl;
-        erorExit();
+        outFile << SEMICOLON_EXPECTED(line_number, programName) << endl;
+        errorExit();
     }
 
     if (i != inLine.length() - 1 && skipWordBreaks(inLine, i + 1) != inLine.length())
     {
-        cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-        erorExit();
+        outFile << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
+        errorExit();
     }
+
+    lexemFile << line_number << "\t\t" << gPROGRAM << endl;
+    lexemFile << line_number << "\t\t"
+                        << "program name(" + programName + ")" << endl;
+    lexemFile << line_number << "\t\t" << gSEMICOLON << endl;
 
     inLine = skipEmptyLines(inFile);
     i = skipWordBreaks(inLine, 0);
 
     if (inLine.substr(i, 5) != gBEGIN)
     {
-        cout << BEGIN_EXPECTED(line_number) << endl;
-        erorExit();
+        outFile << BEGIN_EXPECTED(line_number) << endl;
+        errorExit();
     }
 
     if (i != inLine.length() - 1 && skipWordBreaks(inLine, i + 5) != inLine.length())
     {
-        cout << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
-        erorExit();
+        outFile << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
+        errorExit();
     }
     ++unclosed_clocks_count;
+
+    lexemFile << line_number << "\t\t" << gBEGIN << endl;
 
     generateCode.setProgramName(programName);
 }
@@ -374,7 +420,7 @@ string checkVarDec(fstream& inFile)
 
     if (inLine == "")
     {
-        cout << END_EXPECTED(line_number) << endl;
+        outFile << END_EXPECTED(line_number) << endl;
     }
 
     unsigned i = 0;
@@ -388,30 +434,53 @@ string checkVarDec(fstream& inFile)
         }
         if (i + 3 >= skipWordBreaks(inLine, i + 3))
         {
-            cout << WORD_BREAK_EXPECTED(line_number, gVAR) << endl;
-            erorExit();
+            outFile << WORD_BREAK_EXPECTED(line_number, gVAR) << endl;
+            errorExit();
         }
         i = skipWordBreaks(inLine, i + 3);
 
+        if (inLine.substr(i, 5) != gINT16)
+        {
+            outFile << TOKEN_EXPECTED(line_number, gVAR, gINT16) << endl;
+            errorExit();
+        }
+
+        if (i + 5 >= skipWordBreaks(inLine, i + 5))
+        {
+            outFile << WORD_BREAK_EXPECTED(line_number, gINT16) << endl;
+            errorExit();
+        }
+        i = skipWordBreaks(inLine, i + 5);
+
         if (i != checkIdent(inLine, i))
         {
-            cout << IDENT_EXPECTED(line_number, gVAR) << endl;
-            erorExit();
+            outFile << IDENT_EXPECTED(line_number, gVAR) << endl;
+            errorExit();
         }
         string ident_string = inLine.substr(i, 2);
         short ident = checkForDuplicats(ident_string);
 
         i = skipWordBreaks(inLine, i + 2);
 
+        lexemFile << line_number << "\t\t" << gVAR << endl;
+        lexemFile << line_number << "\t\t" << gINT16 << endl;
+        lexemFile << line_number << "\t\t"
+                            << "identifier(" + ident_string + ")" << endl;
+
+        identFile << line_number << "\t\t" << ident_string << endl;
+
         if (inLine[i] == ';')
         {
             if (skipWordBreaks(inLine, i + 1) != inLine.length())
             {
-                cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-                erorExit();
+                outFile << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
+                errorExit();
             }
             ident_list->push_back(identifier{ ident, 0 });
             generateCode.declareVar(ident_string);
+
+            lexemFile << line_number << "\t\t" << gSEMICOLON << endl;
+
             inLine = skipEmptyLines(inFile);
             continue;
         }
@@ -421,8 +490,8 @@ string checkVarDec(fstream& inFile)
             unsigned constEndPos = getConst(inLine, i);
             if (constEndPos == i)
             {
-                cout << CONSTANT_EXPECTED(line_number) << endl;
-                erorExit();
+                outFile << CONSTANT_EXPECTED(line_number) << endl;
+                errorExit();
             }
             string numStr = inLine.substr(i, constEndPos - i);
             short constantVal = stoi(numStr);
@@ -430,26 +499,30 @@ string checkVarDec(fstream& inFile)
             i = skipWordBreaks(inLine, constEndPos);
             if (inLine[i] != ';')
             {
-                cout << SEMICOLON_EXPECTED(line_number, numStr) << endl;
-                erorExit();
+                outFile << SEMICOLON_EXPECTED(line_number, numStr) << endl;
+                errorExit();
             }
             i = skipWordBreaks(inLine, i + 1);
             if (i < inLine.length())
             {
-                cout << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
-                erorExit();
+                outFile << NEW_LINE_EXPECTED(line_number, gSEMICOLON) << endl;
+                errorExit();
             }
 
             ident_list->push_back(identifier{ ident, constantVal });
 
+            lexemFile << line_number << "\t\t" << gASSIGNMENT << endl;
+            lexemFile << line_number << "\t\t"
+                                << "const(" + numStr + ")" << endl;
+            lexemFile << line_number << "\t\t" << gSEMICOLON << endl;
+
             generateCode.declareVar(ident_string, constantVal);
             inLine = skipEmptyLines(inFile);
         }
-
         else
         {
-            cout << UNEXPECTED_TOKEN(line_number) << endl;
-            erorExit();
+            outFile << UNEXPECTED_TOKEN(line_number) << endl;
+            errorExit();
         }
     }
 }
@@ -465,23 +538,32 @@ void checkProgramBody(string& inLine, fstream& inFile)
     if (i == checkIdent(inLine, i))
     {
         string ident_string = inLine.substr(i, 2);
+
+        identExist(ident_string);
+
         i = skipWordBreaks(inLine, i + 2);
 
         if (inLine.substr(i, 2) != gASSIGNMENT)
         {
-            cout << TOKEN_EXPECTED(line_number, ident_string, gASSIGNMENT) << endl;
-            erorExit();
+            outFile << TOKEN_EXPECTED(line_number, ident_string, gASSIGNMENT) << endl;
+            errorExit();
         }
 
         i = skipWordBreaks(inLine, i + 2);
+
+        lexemFile << line_number << "\t\t"
+                            << "identifier(" + ident_string + ")" << endl;
+        lexemFile << line_number << "\t\t" << gASSIGNMENT << endl;
 
         i = solveExpression(inLine, i);
 
         if (!checkSemicolon(inLine, i))
         {
-            cout << SEMICOLON_EXPECTED(line_number, "Position " + to_string(i)) << endl;
-            erorExit();
+            outFile << SEMICOLON_EXPECTED(line_number, "Position " + to_string(i)) << endl;
+            errorExit();
         }
+
+        lexemFile << line_number << "\t\t" << gSEMICOLON << endl;
 
         generateCode.assignmentCode(ident_string);
     }
@@ -489,16 +571,16 @@ void checkProgramBody(string& inLine, fstream& inFile)
     {
         if (i + 4 == skipWordBreaks(inLine, i + 4))
         {
-            cout << WORD_BREAK_EXPECTED(line_number, gSCAN) << endl;
-            erorExit();
+            outFile << WORD_BREAK_EXPECTED(line_number, gSCAN) << endl;
+            errorExit();
         }
 
         i = skipWordBreaks(inLine, i + 4);
 
         if (i != checkIdent(inLine, i))
         {
-            cout << IDENT_EXPECTED(line_number, gSCAN) << endl;
-            erorExit();
+            outFile << IDENT_EXPECTED(line_number, gSCAN) << endl;
+            errorExit();
         }
 
         string ident_string = inLine.substr(i, 2);
@@ -509,9 +591,14 @@ void checkProgramBody(string& inLine, fstream& inFile)
 
         if (!checkSemicolon(inLine, i))
         {
-            cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
-            erorExit();
+            outFile << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
+            errorExit();
         }
+
+        lexemFile << line_number << "\t\t" << gSCAN << endl;
+        lexemFile << line_number << "\t\t"
+                            << "identifier(" + ident_string + ")" << endl;
+        lexemFile << line_number << "\t\t" << gSEMICOLON << endl;
 
         generateCode.scanCode(ident_string);
     }
@@ -519,16 +606,16 @@ void checkProgramBody(string& inLine, fstream& inFile)
     {
         if (i + 5 == skipWordBreaks(inLine, i + 5))
         {
-            cout << WORD_BREAK_EXPECTED(line_number, gPRINT) << endl;
-            erorExit();
+            outFile << WORD_BREAK_EXPECTED(line_number, gPRINT) << endl;
+            errorExit();
         }
 
         i = skipWordBreaks(inLine, i + 5);
 
         if (i != checkIdent(inLine, i))
         {
-            cout << IDENT_EXPECTED(line_number, gPRINT) << endl;
-            erorExit();
+            outFile << IDENT_EXPECTED(line_number, gPRINT) << endl;
+            errorExit();
         }
 
         string ident_string = inLine.substr(i, 2);
@@ -539,9 +626,14 @@ void checkProgramBody(string& inLine, fstream& inFile)
 
         if (!checkSemicolon(inLine, i))
         {
-            cout << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
-            erorExit();
+            outFile << SEMICOLON_EXPECTED(line_number, ident_string) << endl;
+            errorExit();
         }
+
+        lexemFile << line_number << "\t\t" << gPRINT << endl;
+        lexemFile << line_number << "\t\t"
+                            << "identifier(" + ident_string + ")" << endl;
+        lexemFile << line_number << "\t\t" << gSEMICOLON << endl;
 
         generateCode.printCode(ident_string);
     }
@@ -549,35 +641,38 @@ void checkProgramBody(string& inLine, fstream& inFile)
     {
         if (i + 5 == skipWordBreaks(inLine, i + 5))
         {
-            cout << WORD_BREAK_EXPECTED(line_number, gWHILE) << endl;
-            erorExit();
+            outFile << WORD_BREAK_EXPECTED(line_number, gWHILE) << endl;
+            errorExit();
         }
 
         generateCode.whileStart();
 
         i = skipWordBreaks(inLine, i + 5);
+        lexemFile << line_number << "\t\t" << gWHILE << endl;
 
         i = solveExpression(inLine, i);
 
         if (inLine[i - 1] != ' ' && inLine[i - 1] != '\t')
         {
-            cout << WORD_BREAK_EXPECTED(line_number, "Position " + to_string(i)) << endl;
-            erorExit();
+            outFile << WORD_BREAK_EXPECTED(line_number, "Position " + to_string(i)) << endl;
+            errorExit();
         }
 
         if (inLine.substr(i, 2) != gDO)
         {
-            cout << TOKEN_EXPECTED(line_number, "Condition", gDO) << endl;
-            erorExit();
+            outFile << TOKEN_EXPECTED(line_number, "Condition", gDO) << endl;
+            errorExit();
         }
 
         i = skipWordBreaks(inLine, i + 2);
 
         if (i != inLine.length())
         {
-            cout << NEW_LINE_EXPECTED(line_number, gDO) << endl;
-            erorExit();
+            outFile << NEW_LINE_EXPECTED(line_number, gDO) << endl;
+            errorExit();
         }
+
+        lexemFile << line_number << "\t\t" << gDO << endl;
 
         inLine = skipEmptyLines(inFile);
 
@@ -585,38 +680,42 @@ void checkProgramBody(string& inLine, fstream& inFile)
 
         if (inLine.substr(i, 5) != gBEGIN)
         {
-            cout << TOKEN_EXPECTED(line_number, gDO, gBEGIN) << endl;
-            erorExit();
+            outFile << TOKEN_EXPECTED(line_number, gDO, gBEGIN) << endl;
+            errorExit();
         }
 
         i = skipWordBreaks(inLine, i + 5);
 
         if (i != inLine.length())
         {
-            cout << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
-            erorExit();
+            outFile << NEW_LINE_EXPECTED(line_number, gBEGIN) << endl;
+            errorExit();
         }
 
         ++unclosed_clocks_count;
+
+        lexemFile << line_number << "\t\t" << gBEGIN << endl;
 
         generateCode.whileCmp();
     }
     else if (inLine.substr(i, 3) == gEND)
     {
+        lexemFile << line_number << "\t\t" << gEND << endl;
+
         i = skipWordBreaks(inLine, i + 3);
 
         --unclosed_clocks_count;
 
         if (i != inLine.length())
         {
-            cout << NEW_LINE_EXPECTED(line_number, gEND) << endl;
-            erorExit();
+            outFile << NEW_LINE_EXPECTED(line_number, gEND) << endl;
+            errorExit();
         }
 
         if (unclosed_clocks_count < 0)
         {
-            cout << OPEN_BLOCK_EXPECTED(line_number) << endl;
-            erorExit();
+            outFile << OPEN_BLOCK_EXPECTED(line_number) << endl;
+            errorExit();
         }
         else if (unclosed_clocks_count == 0)
         {
@@ -624,8 +723,8 @@ void checkProgramBody(string& inLine, fstream& inFile)
             if (inLine != "")
             {
                 short program_end_line = line_number;
-                cout << NO_TOKENS_EXPECTED(line_number, "end of the program: \"END\" in line " + to_string(program_end_line)) << endl;
-                erorExit();
+                outFile << NO_TOKENS_EXPECTED(line_number, "end of the program: \"END\" in line " + to_string(program_end_line)) << endl;
+                errorExit();
             }
             return;
         }
@@ -634,8 +733,8 @@ void checkProgramBody(string& inLine, fstream& inFile)
     }
     else
     {
-        cout << UNEXPECTED_TOKEN(line_number) << endl;
-        erorExit();
+        outFile << UNEXPECTED_TOKEN(line_number) << endl;
+        errorExit();
     }
 }
 
@@ -653,8 +752,8 @@ unsigned solveExpression(string& inLine, unsigned startPos)
     } while (curOperator.name != gUNKNOWN_OPERATOR.name);
     if (unclosed_brackets_count != 0)
     {
-        cout << CLOSE_BRACKET_EXPECTED(line_number) << endl;
-        erorExit();
+        outFile << CLOSE_BRACKET_EXPECTED(line_number) << endl;
+        errorExit();
     }
     return startPos;
 }
@@ -664,6 +763,8 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
     startPos = skipWordBreaks(inLine, startPos);
     if (inLine.substr(startPos, 1) == gOPEN_BRACKET.name)
     {
+        lexemFile << line_number << "\t\t" << gOPEN_BRACKET.name << endl;
+
         short t_u_b = unclosed_brackets_count;
         ++unclosed_brackets_count;
         gOperator nextOperator = gUNKNOWN_OPERATOR;
@@ -714,6 +815,8 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
     }
     else if (inLine.substr(startPos, 2) == gNOT.name)
     {
+        lexemFile << line_number << "\t\t" << gNOT.name << endl;
+
         startPos = solveExpressionPart(inLine, startPos + 2, gNOT);
         generateCode.regOperator(gNOT.name, "");
         return startPos;
@@ -723,15 +826,20 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
         string ident_string = inLine.substr(startPos, 2);
         identExist(ident_string);
 
+        lexemFile << line_number << "\t\t"
+                            << "identifier(" + ident_string + ")" << endl;
+
         startPos = skipWordBreaks(inLine, startPos + 2);
 
         while (inLine.substr(startPos, 1) == gCLOSE_BRACKET.name)
         {
+            lexemFile << line_number << "\t\t" << gCLOSE_BRACKET.name << endl;
+
             --unclosed_brackets_count;
             if (unclosed_brackets_count < 0)
             {
-                cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
-                erorExit();
+                outFile << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
+                errorExit();
             }
 
             startPos = skipWordBreaks(inLine, startPos + 1);
@@ -751,6 +859,8 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
             return startPos;
         }
 
+        lexemFile << line_number << "\t\t" << nextOperator.name << endl;
+
         if (nextOperator.priority <= prevOperator.priority)
         {
             generateCode.regMov("_" + ident_string);
@@ -769,21 +879,26 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
         string constStr = inLine.substr(startPos, constEnd - startPos);
         short constNum = stoi(constStr);
 
+        lexemFile << line_number << "\t\t"
+                            << "const(" + constStr + ")" << endl;
+
         if (constNum < 0 && prevOperator.name != gUNKNOWN_OPERATOR.name)
         {
-            cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
-            erorExit();
+            outFile << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
+            errorExit();
         }
 
         startPos = skipWordBreaks(inLine, constEnd);
 
         while (inLine.substr(startPos, 1) == gCLOSE_BRACKET.name)
         {
+            lexemFile << line_number << "\t\t" << gCLOSE_BRACKET.name << endl;
+
             --unclosed_brackets_count;
             if (unclosed_brackets_count < 0)
             {
-                cout << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
-                erorExit();
+                outFile << OPEN_BRACKET_EXPECTED(line_number, startPos) << endl;
+                errorExit();
             }
 
             startPos = skipWordBreaks(inLine, startPos + 1);
@@ -802,6 +917,9 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
             generateCode.regMov(constStr);
             return startPos;
         }
+
+        lexemFile << line_number << "\t\t" << nextOperator.name << endl;
+
         if (nextOperator.priority <= prevOperator.priority)
         {
             generateCode.regMov(constStr);
@@ -814,8 +932,8 @@ unsigned solveExpressionPart(string& inLine, unsigned startPos, gOperator prevOp
     }
     else
     {
-        cout << UNEXPECTED_TOKEN(line_number) << endl;
-        erorExit();
+        outFile << UNEXPECTED_TOKEN(line_number) << endl;
+        errorExit();
     }
 }
 
