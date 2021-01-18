@@ -203,6 +203,7 @@ void codeGenerator::popCx()
 void codeGenerator::whileStart()
 {
     ++blocks_count;
+    ++max_block;
     asmFile << tabulationStr << "_while_begin_" + to_string(blocks_count) + ":\n";
     tabulationStr += "\t";
 }
@@ -217,6 +218,12 @@ void codeGenerator::whileEnd()
     asmFile << tabulationStr << "jmp _while_begin_" + to_string(blocks_count) + "\n";
     asmFile << tabulationStr << "_while_end_" + to_string(blocks_count) + ":\n";
     --blocks_count;
+
+    if (blocks_count == start_block_number)
+    {
+        start_block_number = max_block;
+        blocks_count = max_block;
+    }
 }
 
 void codeGenerator::assembleFile()
@@ -239,7 +246,7 @@ void codeGenerator::writeComment(string commentLine)
 void codeGenerator::clearFile()
 {
     asmFile.close();
-    remove((filePath+".asm").c_str());
-    remove((filePath+".obj").c_str());
-    remove((filePath+".exe").c_str());
+    remove((filePath + ".asm").c_str());
+    remove((filePath + ".obj").c_str());
+    remove((filePath + ".exe").c_str());
 }

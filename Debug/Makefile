@@ -222,6 +222,7 @@ Makefile: ../CW_SP_Gunko_BO_KI_32/CW_SP_Gunko_BO_KI_32.pro P:/Programs/QtCreator
 		P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/qt_config.prf \
 		P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/win32-g++/qmake.conf \
 		P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/spec_post.prf \
+		.qmake.stash \
 		P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/exclusive_builds.prf \
 		P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/toolchain.prf \
 		P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/default_pre.prf \
@@ -240,7 +241,6 @@ Makefile: ../CW_SP_Gunko_BO_KI_32/CW_SP_Gunko_BO_KI_32.pro P:/Programs/QtCreator
 		P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/yacc.prf \
 		P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/lex.prf \
 		../CW_SP_Gunko_BO_KI_32/CW_SP_Gunko_BO_KI_32.pro \
-		.qmake.stash \
 		P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/build_pass.prf
 	$(QMAKE) -o Makefile ..\CW_SP_Gunko_BO_KI_32\CW_SP_Gunko_BO_KI_32.pro -spec win32-g++ "CONFIG+=debug" "CONFIG+=qml_debug"
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/spec_pre.prf:
@@ -395,6 +395,7 @@ P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/qt_functions.prf:
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/qt_config.prf:
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/win32-g++/qmake.conf:
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/spec_post.prf:
+.qmake.stash:
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/exclusive_builds.prf:
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/toolchain.prf:
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/default_pre.prf:
@@ -413,7 +414,6 @@ P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/exceptions.prf:
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/yacc.prf:
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/lex.prf:
 ../CW_SP_Gunko_BO_KI_32/CW_SP_Gunko_BO_KI_32.pro:
-.qmake.stash:
 P:/Programs/QtCreator/Qt/5.15.2/mingw81_32/mkspecs/features/build_pass.prf:
 qmake: FORCE
 	@$(QMAKE) -o Makefile ..\CW_SP_Gunko_BO_KI_32\CW_SP_Gunko_BO_KI_32.pro -spec win32-g++ "CONFIG+=debug" "CONFIG+=qml_debug"

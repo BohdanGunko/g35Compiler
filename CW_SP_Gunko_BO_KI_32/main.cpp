@@ -110,7 +110,7 @@ gOperator getNextOperator(string& inLine, unsigned pos);
 
 int main()
 {
-    string filePath;
+
 enter_file_name:
     cout << "Please enter(or paste) path to file: " << endl;
     getline(cin, filePath);

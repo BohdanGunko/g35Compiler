@@ -13,6 +13,8 @@ protected:
     string filePath;
     string programName;
     unsigned blocks_count = 0;
+    unsigned start_block_number = 0;
+    unsigned max_block = 0;
     unsigned andOperatorsCounter = 1;
     string tabulationStr = "";
 
